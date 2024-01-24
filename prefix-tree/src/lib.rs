@@ -168,6 +168,7 @@ mod tests {
         assert!(trie.contains("hello"));
         assert!(trie.contains("world"));
 
+        assert!(!trie.contains(""));
         assert!(!trie.contains("adf"));
         assert!(!trie.contains("worl"));
         assert!(!trie.contains("helloo"));

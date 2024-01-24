@@ -6,3 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+derivative = "2.2.0"
+ordered-float = "4.2.0"
+pathfinding = "4.8.2"
+prefix_tree = {path = "../prefix-tree"}
