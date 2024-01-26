@@ -1,7 +1,9 @@
 use derivative::Derivative;
+use regex::Regex;
 use std::{
+    error::Error,
     ops::{BitOr, Index, IndexMut},
-    vec,
+    time::Instant,
 };
 
 use itertools::Itertools;
@@ -16,16 +18,20 @@ const WORD_LIST: &str = include_str!("../../vocab.txt");
 const VOCAB_SIZE: usize = 50_000;
 const WORD_LEN_THRESHOLD: usize = 3;
 
-pub type Letter = char;
+const NYTIMES_GAMES_URL: &str = "https://www.nytimes.com/puzzles/letter-boxed";
+const WEB_ARCHIVE_INDEX_URL: &str = "http://web.archive.org/cdx/search/cdx";
+const WEB_ARCHIVE_ARCHIVE_URL: &str = "http://web.archive.org/web";
+
+type Letter = char;
 
 /// word -> cost
 type Vocabulary = PrefixTree<Letter, usize>;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash, Default)]
-pub struct Position(usize, usize);
+struct Position(usize, usize);
 
 #[derive(Default, Eq, PartialEq, Hash, Clone, Debug)]
-pub struct Board<T>([[T; N_PER_SIDE]; N_SIDES]);
+struct Board<T>([[T; N_PER_SIDE]; N_SIDES]);
 
 /// Let's us index boards like `board[pos]`
 impl<T> Index<Position> for Board<T> {
@@ -68,7 +74,7 @@ impl Board<bool> {
 // #[derive(Debug, Default, PartialEq, Eq, Clone, Hash)]
 #[derive(Derivative, Clone, Default)]
 #[derivative(PartialEq, Eq, Hash)]
-pub struct GameState {
+struct GameState {
     pos: Position,
     letters_used: Board<bool>,
 
@@ -82,11 +88,40 @@ pub struct LettersBoxedGame {
 }
 
 impl LettersBoxedGame {
-    pub fn new(letters: Board<Letter>) -> Self {
-        Self {
+    pub fn new(sides: &[&str]) -> Result<Self, Box<dyn Error>> {
+        let mut letters: Board<Letter> = Default::default();
+
+        sides.into_iter().enumerate().for_each(|(i, side)| {
+            side.chars()
+                .enumerate()
+                .for_each(|(j, char)| letters.0[i][j] = char)
+        });
+
+        Ok(Self {
             letters,
             vocabulary: Self::load_vocabulary(),
-        }
+        })
+    }
+
+    pub fn today() -> Result<Self, Box<dyn Error>> {
+        let html = reqwest::blocking::get(NYTIMES_GAMES_URL)?.text()?;
+        Self::from_nytimes_html(&html)
+    }
+
+    fn from_nytimes_html(html: &str) -> Result<Self, Box<dyn Error>> {
+        let pattern = Regex::new(r#"\"sides\":\[(.*?)\]"#)?;
+
+        let sides = pattern
+            .captures(html)
+            .ok_or("Failed to find sides in HTML.")?
+            .get(1)
+            .ok_or("Failed to find sides in HTML.")?
+            .as_str()
+            .split(",")
+            .filter_map(|side| side.get(1..4))
+            .collect_vec();
+
+        Self::new(&sides)
     }
 
     fn load_vocabulary() -> Vocabulary {
@@ -96,7 +131,7 @@ impl LettersBoxedGame {
             .split("\n")
             .map(|line| {
                 let mut line = line.split_whitespace();
-                let word = line.next().unwrap();
+                let word = line.next().unwrap().to_uppercase();
                 let popularity: usize = line.next().unwrap().parse().unwrap();
 
                 (word, popularity)
@@ -256,12 +291,7 @@ mod test {
     use super::*;
 
     fn game() -> LettersBoxedGame {
-        LettersBoxedGame::new(Board([
-            ['l', 'c', 'v'],
-            ['r', 'w', 'a'],
-            ['e', 'n', 'g'],
-            ['t', 'i', 'o'],
-        ]))
+        LettersBoxedGame::new(&["LCV", "RWA", "ENG", "TIO"]).unwrap()
     }
 
     #[test]
@@ -273,41 +303,20 @@ mod test {
     // TODO: add more tests
 }
 
-fn main() {
-    // 1/22/24
-    // let game = LettersBoxedGame::new(Board([
-    //     ['t', 'c', 'p'],
-    //     ['y', 'i', 'r'],
-    //     ['d', 'h', 'a'],
-    //     ['o', 'n', 'l'],
-    // ]));
+fn main() -> Result<(), Box<dyn Error>> {
+    // let game = LettersBoxedGame::new(&["TCP", "YIR", "DHA", "ONL"]).unwrap(); // 1/22
+    // let game = LettersBoxedGame::new(&["LCV", "RWA", "ENG", "TIO"]).unwrap(); // 1/23
+    // let game = LettersBoxedGame::new(&["CRM", "KBL", "AUH", "ISF"]).unwrap(); // 1/24
+    let game = LettersBoxedGame::new(&["NLA", "IGC", "RUP", "QKO"])?; // 1/25
 
-    // 1/23/24
-    // let game = LettersBoxedGame::new(Board([
-    //     ['l', 'c', 'v'],
-    //     ['r', 'w', 'a'],
-    //     ['e', 'n', 'g'],
-    //     ['t', 'i', 'o'],
-    // ]));
+    let game = LettersBoxedGame::today()?;
 
-    // 1/24/24
-    // flashbacks, samurai
-    let game = LettersBoxedGame::new(Board([
-        ['c', 'r', 'm'],
-        ['k', 'b', 'l'],
-        ['a', 'u', 'h'],
-        ['i', 's', 'f'],
-    ]));
+    println!("{:?}", game.letters);
 
-    // 1/25/24
-    // let game = LettersBoxedGame::new(Board([
-    //     ['n', 'l', 'a'],
-    //     ['i', 'g', 'c'],
-    //     ['r', 'u', 'p'],
-    //     ['q', 'k', 'o'],
-    // ]));
-
-    for moves in game.solve().into_iter().take(10) {
-        println!("{:?}", moves);
+    let start = Instant::now();
+    for moves in game.solve().into_iter().take(4) {
+        println!("{:?} {:?}", moves, Instant::now() - start);
     }
+
+    Ok(())
 }
