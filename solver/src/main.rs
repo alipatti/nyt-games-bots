@@ -6,15 +6,11 @@ use std::{
 
 use itertools::Itertools;
 
-use pathfinding::directed::{
-    dfs::dfs_reach, dijkstra::dijkstra_reach, yen::yen,
-};
+use pathfinding::directed::{dfs::dfs_reach, dijkstra::dijkstra_reach};
 use prefix_tree::{PrefixTree, QueryResult};
 
 const N_PER_SIDE: usize = 3;
 const N_SIDES: usize = 4;
-
-const N_SOLUTIONS: usize = 1;
 
 const WORD_LIST: &str = include_str!("../../vocab.txt");
 const VOCAB_SIZE: usize = 50_000;
