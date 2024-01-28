@@ -2,6 +2,6 @@
 
 members = [
     "prefix-tree",
-    "solver",
+    "letter-boxed",
     "frontend",
 ]
