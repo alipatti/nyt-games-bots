@@ -430,6 +430,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e2abad23fbc42b3700f2f279844dc832adb2b2eb069b2df918f455c4e18cc646"
 
 [[package]]
+name = "letter-boxed"
+version = "0.1.0"
+dependencies = [
+ "derivative",
+ "itertools",
+ "pathfinding",
+ "prefix_tree",
+ "regex",
+ "reqwest",
+]
+
+[[package]]
 name = "libc"
 version = "0.2.152"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -573,15 +585,6 @@ dependencies = [
  "libc",
  "pkg-config",
  "vcpkg",
-]
-
-[[package]]
-name = "ordered-float"
-version = "4.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a76df7075c7d4d01fdcb46c912dd17fba5b60c78ea480b475f2b6ab6f666584e"
-dependencies = [
- "num-traits",
 ]
 
 [[package]]
@@ -850,19 +853,6 @@ checksum = "7b5fac59a5cb5dd637972e5fca70daf0523c9067fcdc4842f053dae04a18f8e9"
 dependencies = [
  "libc",
  "windows-sys 0.48.0",
-]
-
-[[package]]
-name = "solver"
-version = "0.1.0"
-dependencies = [
- "derivative",
- "itertools",
- "ordered-float",
- "pathfinding",
- "prefix_tree",
- "regex",
- "reqwest",
 ]
 
 [[package]]
