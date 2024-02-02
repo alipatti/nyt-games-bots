@@ -13,5 +13,5 @@ struct Position {
 }
 
 fn main() {
-    todo!()
+    puzzle::Puzzle::from_rows(["   ", "    ", "    ", "    "]);
 }

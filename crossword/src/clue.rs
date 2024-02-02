@@ -17,9 +17,7 @@ impl Clue {
     }
 
     /// Returns an interator of the positions of the squares covered by this clue..
-    pub(super) fn positions(
-        &'_ self,
-    ) -> impl Iterator<Item = Position> + '_ {
+    pub(super) fn positions(&'_ self) -> impl Iterator<Item = Position> + '_ {
         let positions = (0..self.length).map(|i| Position {
             row: match self.direction {
                 Direction::Across => self.start.row,
@@ -42,4 +40,3 @@ impl Clue {
         todo!()
     }
 }
-

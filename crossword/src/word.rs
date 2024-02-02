@@ -52,4 +52,3 @@ impl TryFrom<String> for Word {
     }
 }
 // TODO: add tests
-

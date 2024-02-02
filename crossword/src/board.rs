@@ -39,4 +39,3 @@ impl Board {
         self.squares.iter().all(|square| !square.is_empty())
     }
 }
-

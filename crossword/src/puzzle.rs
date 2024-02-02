@@ -13,8 +13,9 @@ pub struct Puzzle {
 }
 
 impl Puzzle {
-    pub fn new() {
-        todo!()
+    pub fn from_rows(rows: &[&str]) {
+        let board = todo!();
+        Self::from_board(&board);
     }
 
     /// Returns the possbile fills of this [`Puzzle`].
@@ -85,9 +86,7 @@ fn load_vocabulary() -> Result<HashMap<usize, Vec<Word>>, Box<dyn Error>> {
 
             let popularity: usize = cols
                 .next()
-                .ok_or(format!(
-                    "Line contains no popularity score: {line}"
-                ))?
+                .ok_or(format!("Line contains no popularity score: {line}"))?
                 .parse()?;
 
             Ok::<_, Box<dyn Error>>((word, popularity))
@@ -115,8 +114,7 @@ mod tests {
 
     #[test]
     fn test_load_vocab() {
-        let vocab =
-            load_vocabulary().expect("Failed to generate vocabulary");
+        let vocab = load_vocabulary().expect("Failed to generate vocabulary");
 
         // make sure that all values are loaded in
         assert_eq!(
@@ -127,4 +125,3 @@ mod tests {
         // TODO: add more
     }
 }
-
