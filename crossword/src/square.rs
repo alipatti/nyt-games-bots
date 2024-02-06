@@ -11,6 +11,8 @@ pub(super) struct Square(u8);
 impl Square {
     const EMPTY: Self = Self(0);
     const BLOCKED: Self = Self(1);
+    const EMPTY_CHAR: char = ' ';
+    const BLOCKED_CHAR: char = '#';
 
     pub(crate) fn is_empty(&self) -> bool {
         *self == Self::EMPTY
@@ -42,7 +44,7 @@ impl TryFrom<u8> for Square {
 
     fn try_from(value: u8) -> Result<Self, Self::Error> {
         match value {
-            0..=1 => Ok(Self(value)),
+            0..=1 => Ok(Self(value)), // empty or blocked
             _ => {
                 if value.is_ascii_uppercase() {
                     Ok(Self(value))
@@ -58,8 +60,10 @@ impl TryFrom<char> for Square {
     type Error = &'static str;
 
     fn try_from(value: char) -> Result<Self, Self::Error> {
-        if value == ' ' {
+        if value == Self::EMPTY_CHAR {
             Ok(Self(0)) // empty
+        } else if value == Self::BLOCKED_CHAR {
+            Ok(Self(1))
         } else if value.is_ascii_uppercase() {
             Ok(Self(value as u8))
         } else if value.is_ascii_lowercase() {
@@ -75,12 +79,16 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_square_from_u8() {
-        todo!()
-    }
+    fn square_from_char() {
+        Square::try_from('a').expect("Should be an a.");
+        Square::try_from('X').expect("Should be a X.");
+        Square::try_from(' ').expect("Should be an empty square.");
+        Square::try_from('#').expect("Should be a blocked square.");
+        
+        Square::try_from('*').expect_err("Should be an invalid square.");
+        Square::try_from('_').expect_err("Should be an invalid square.");
+        Square::try_from('$').expect_err("Should be an invalid square.");
+        Square::try_from('/').expect_err("Should be an invalid square.");
 
-    #[test]
-    fn test_square_from_char() {
-        todo!()
     }
 }

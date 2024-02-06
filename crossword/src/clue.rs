@@ -1,14 +1,16 @@
 use crate::Position;
 
+#[derive(Debug, PartialEq, Eq)]
 pub(super) enum Direction {
     Across,
     Down,
 }
 
-pub(super) struct Clue {
-    direction: Direction,
-    start: Position,
-    length: usize,
+#[derive(Debug, PartialEq, Eq)]
+pub(crate) struct Clue {
+    pub(crate) direction: Direction,
+    pub(crate) start: Position,
+    pub(crate) length: usize,
 }
 
 impl Clue {

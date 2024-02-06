@@ -4,7 +4,7 @@ use crate::board::Board;
 use crate::clue::Clue;
 use crate::word::Word;
 
-use crate::VOCAB_SIZE;
+use crate::{VOCAB_PATH, VOCAB_SIZE};
 
 pub struct Puzzle {
     board: Board,
@@ -12,12 +12,37 @@ pub struct Puzzle {
     vocab: HashMap<usize, Vec<Word>>,
 }
 
-impl Puzzle {
-    pub fn from_rows(rows: &[&str]) {
-        let board = todo!();
-        Self::from_board(&board);
-    }
+impl TryFrom<Board> for Puzzle {
+    type Error = Box<dyn Error>;
 
+    fn try_from(board: Board) -> Result<Self, Self::Error> {
+        let clues = board.clues();
+
+        if clues.iter().any(|c| c.len() < 3) {
+            return Err("Clues must have length at least 3.".into());
+        }
+
+        Ok(Self {
+            board,
+            vocab: load_vocabulary()?,
+            clues,
+        })
+    }
+}
+
+// impl<T> TryFrom<T> for Puzzle
+// where
+//     T: TryInto<Board>,
+// {
+//     type Error = Box<dyn Error>;
+//
+//     fn try_from(value: T) -> Result<Self, Self::Error> {
+//         let board = Board::try_from(value)?;
+//         Self::try_from(board)
+//     }
+// }
+
+impl Puzzle {
     /// Returns the possbile fills of this [`Puzzle`].
     pub fn possbile_fills(&self) -> impl IntoIterator<Item = Board> {
         todo!();
@@ -40,21 +65,27 @@ impl Puzzle {
 
     /// Returns the number of words in the vocabulary that would fit this clue.
     fn clue_n_fits(&self, clue: &Clue) -> usize {
-        match self.vocab.get(&clue.len()) {
-            None => 0, // no words of that length
-            Some(words) => {
-                if self.clue_filled(clue) {
-                    1
-                } else if self.clue_empty(clue) {
-                    words.len()
-                } else {
-                    words
-                        .iter()
-                        .map(|word| self.clue_fits(word, clue) as usize)
-                        .sum::<usize>()
-                }
-            }
+        let words = self
+            .vocab
+            .get(&clue.len())
+            .expect("No words of length {clue.len()}");
+
+        if self.clue_filled(clue) {
+            1 // filled, so there's one match
+        } else if self.clue_empty(clue) {
+            words.len() // empty, so any word will fit
+        } else {
+            // count the number of words that fit
+            // PERF: is there a better (sub-linear) data structure for this?
+            words
+                .iter()
+                .map(|word| self.clue_fits(word, clue) as usize)
+                .sum::<usize>()
         }
+    }
+
+    fn next_unfilled_clue(&'_ self) -> Option<&'_ Clue> {
+        self.clues.iter().filter(|clue| !clue.is_filled()).next()
     }
 
     fn clue_fits(&self, word: &Word, clue: &Clue) -> bool {
@@ -113,15 +144,26 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_load_vocab() {
-        let vocab = load_vocabulary().expect("Failed to generate vocabulary");
+    fn vocab_loads_properly() {
+        load_vocabulary().expect("Should generate vocabulary");
+    }
 
-        // make sure that all values are loaded in
+    #[test]
+    fn all_words_loaded() {
+        let vocab = load_vocabulary().unwrap();
+
         assert_eq!(
             vocab.values().map(|words| words.len()).sum::<usize>(),
             VOCAB_SIZE
         );
+    }
 
-        // TODO: add more
+    #[test]
+    fn lengths_sorted_properly() {
+        let vocab = load_vocabulary().unwrap();
+
+        assert!(vocab
+            .iter()
+            .all(|(&len, words)| words.iter().all(|w| w.len() == len)))
     }
 }
