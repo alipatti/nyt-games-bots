@@ -3,6 +3,7 @@ mod clue;
 mod puzzle;
 mod square;
 mod word;
+mod vocab;
 
 const VOCAB_SIZE: usize = 10_000;
 const VOCAB_PATH: &'static str = "../../vocab.txt";

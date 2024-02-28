@@ -5,12 +5,12 @@ const BLOCKED_CHAR: char = '#';
 
 /// A square in a crossword puzzle. Guaranteed to contain 0, 1, or a
 /// valid ASCII uppercase character.
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub(super) struct Square(u8);
 
 impl Square {
-    const EMPTY: Self = Self(0);
-    const BLOCKED: Self = Self(1);
+    pub(super) const EMPTY: Self = Self(0);
+    pub(super)const BLOCKED: Self = Self(1);
     const EMPTY_CHAR: char = ' ';
     const BLOCKED_CHAR: char = '#';
 

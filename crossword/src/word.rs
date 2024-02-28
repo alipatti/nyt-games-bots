@@ -1,13 +1,14 @@
 use std::fmt::{Debug, Write};
 
 /// A word represented as an array of uppercase ascii bytes
+#[derive(Clone)]
 pub(super) struct Word {
-    chars: Box<[u8]>,
+    pub(super) chars: Box<[u8]>,
 }
 
 impl Debug for Word {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        for c in self.chars() {
+        for c in self.chars.iter() {
             f.write_char(*c as char)?
         }
 
@@ -16,10 +17,6 @@ impl Debug for Word {
 }
 
 impl Word {
-    pub(crate) fn chars(&self) -> impl Iterator<Item = &u8> {
-        self.chars.into_iter()
-    }
-
     pub(crate) fn len(&self) -> usize {
         self.chars.len()
     }

@@ -90,7 +90,7 @@ impl Puzzle {
 
     fn clue_fits(&self, word: &Word, clue: &Clue) -> bool {
         clue.positions()
-            .zip(word.chars())
+            .zip(word.chars.iter())
             .all(|(pos, &char)| self.board[pos].matches(char))
     }
 
