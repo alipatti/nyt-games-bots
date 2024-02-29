@@ -12,12 +12,15 @@ pub(crate) struct Vocab {
 
 // impl<'a> Vocab<'a> {
 impl Vocab {
-    pub(crate) fn new(word_list: &[&str]) -> Self {
+    pub(crate) fn new<'a, T>(word_list: T) -> Self
+    where
+        T: IntoIterator<Item = &'a str>,
+    {
         let mut vocab = HashMap::new();
 
         // convert strings to `Words`
         let word_list = word_list
-            .iter()
+            .into_iter()
             .map(|w| Word::try_from(w.as_bytes()))
             .filter_map(|w| w.ok()); // silently drop failed conversions
 
@@ -43,12 +46,7 @@ impl Vocab {
         Self { vocab }
     }
 
-    pub(crate) fn matches<T>(&'_ self, squares: T) -> &'_ [Word]
-    where
-        T: IntoIterator<Item = Square>,
-    {
-        let squares = squares.into_iter().collect_vec();
-
+    pub(crate) fn matches(&'_ self, squares: Vec<Square>) -> &'_ [Word] {
         let matching_words = self
             .vocab
             .get(&squares)
@@ -81,7 +79,7 @@ mod tests {
                 })
                 .collect_vec();
 
-        let vocab = Vocab::new(&words);
+        let vocab = Vocab::new(words);
 
         // check that all the partial words are in the vocab
         assert!(partial_words
