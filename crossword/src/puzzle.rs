@@ -1,12 +1,11 @@
 use std::error::Error;
 use std::iter;
 
-use itertools::Itertools;
 use pathfinding::directed::dfs::dfs_reach;
 
 use crate::board::Board;
 use crate::clue::Clue;
-use crate::vocab::Vocab;
+use crate::vocab::{load_cached_vocab, Vocab};
 
 pub struct Puzzle {
     board: Board,
@@ -24,8 +23,7 @@ impl TryFrom<Board> for Puzzle {
             return Err("Clues must have length at least 3.".into());
         }
 
-        let word_list = include_str!("../../word_list.txt").split_whitespace();
-        let vocab = Vocab::new(word_list);
+        let vocab = load_cached_vocab()?;
 
         Ok(Self {
             board,
@@ -36,9 +34,12 @@ impl TryFrom<Board> for Puzzle {
 }
 
 impl Puzzle {
-    pub fn possbile_fills(&'_ self) -> impl Iterator<Item = Board> + '_ {
+    fn fill_generator(&'_ self) -> impl Iterator<Item = Board> + '_ {
         dfs_reach(self.board.clone(), |board| self.next_moves(board.clone()))
-        // .filter(|b| b.is_filled())
+    }
+
+    pub fn valid_fills(&'_ self) -> impl Iterator<Item = Board> + '_ {
+        self.fill_generator().filter(|b| b.is_filled())
     }
 
     fn next_moves(&'_ self, board: Board) -> impl Iterator<Item = Board> + '_ {
@@ -49,7 +50,16 @@ impl Puzzle {
             iter::repeat(clue).zip(self.vocab.matches(squares))
         });
 
-        words_and_clues.map(move |(clue, word)| board2.insert(word, clue))
+        let all_next_moves =
+            words_and_clues.map(move |(clue, word)| board2.insert(word, clue));
+
+        let good_next_moves = all_next_moves.filter(|new_board| {
+            self.clues.iter().all(|clue| {
+                !self.vocab.matches(new_board.clue_squares(clue)).is_empty()
+            })
+        });
+
+        good_next_moves
     }
 }
 
@@ -58,18 +68,12 @@ mod tests {
     use super::*;
 
     #[test]
-    fn solver_works_small() {
-        let board = Board::try_from("   \n   \n   \n   ")
+    fn generator_works_small() {
+        let board = Board::try_from("    \n    \n    \n    ")
             .expect("Should be a valid board.");
         let puzzle =
             Puzzle::try_from(board).expect("Should be a valid puzzle.");
 
-        println!("{:#?}", puzzle.clues);
-
-        for board in puzzle.possbile_fills().take(10) {
-            println!("{:?}", board);
-        }
-
-        panic!()
+        let _ = puzzle.fill_generator().take(10);
     }
 }

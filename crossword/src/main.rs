@@ -1,12 +1,14 @@
+use std::{error::Error, io::stdin};
+
+use board::Board;
+use puzzle::Puzzle;
+
 mod board;
 mod clue;
 mod puzzle;
 mod square;
-mod word;
 mod vocab;
-
-const VOCAB_SIZE: usize = 10_000;
-const VOCAB_PATH: &'static str = "../../vocab.txt";
+mod word;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 struct Position {
@@ -44,6 +46,20 @@ impl Position {
     }
 }
 
-fn main() {
-    // puzzle::Puzzle::from_rows(["   ", "    ", "    ", "    "]);
+fn main() -> Result<(), Box<dyn Error>> {
+    let board = Board::try_from("GAMMA\nALOOF\nSLANT\n#   #\n#   #")
+        .expect("Should be a valid board.");
+
+    let puzzle =
+        Puzzle::try_from(board.clone()).expect("Should be a valid puzzle.");
+    let mut s = String::new();
+
+    println!("{:?}", board);
+
+    for fill in puzzle.valid_fills() {
+        println!("{:?}", fill);
+        let _ = stdin().read_line(&mut s)?;
+    }
+
+    Ok(())
 }

@@ -1,7 +1,9 @@
 use std::fmt::{Debug, Write};
 
+use serde::{Serialize, Deserialize};
+
 /// A word represented as an array of uppercase ascii bytes
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub(super) struct Word {
     pub(super) chars: Box<[u8]>,
 }

@@ -1,11 +1,13 @@
 use std::fmt::{Debug, Write};
 
+use serde::{Serialize, Deserialize};
+
 const EMPTY_CHAR: char = ' ';
 const BLOCKED_CHAR: char = '#';
 
 /// A square in a crossword puzzle. Guaranteed to contain 0, 1, or a
 /// valid ASCII uppercase character.
-#[derive(Clone, PartialEq, Eq, Hash)]
+#[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub(super) struct Square(u8);
 
 impl Square {

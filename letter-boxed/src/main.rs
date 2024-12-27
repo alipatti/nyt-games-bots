@@ -14,7 +14,7 @@ use prefix_tree::{PrefixTree, QueryResult};
 const N_PER_SIDE: usize = 3;
 const N_SIDES: usize = 4;
 
-const WORD_LIST: &str = include_str!("../../vocab.txt");
+const WORD_LIST: &str = include_str!("../../word_list.txt");
 const VOCAB_SIZE: usize = 50_000;
 const WORD_LEN_THRESHOLD: usize = 3;
 
@@ -307,7 +307,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     // let game = LettersBoxedGame::new(&["TCP", "YIR", "DHA", "ONL"]).unwrap(); // 1/22
     // let game = LettersBoxedGame::new(&["LCV", "RWA", "ENG", "TIO"]).unwrap(); // 1/23
     // let game = LettersBoxedGame::new(&["CRM", "KBL", "AUH", "ISF"]).unwrap(); // 1/24
-    let game = LettersBoxedGame::new(&["NLA", "IGC", "RUP", "QKO"])?; // 1/25
+    // let game = LettersBoxedGame::new(&["NLA", "IGC", "RUP", "QKO"])?; // 1/25
 
     let game = LettersBoxedGame::today()?;
 

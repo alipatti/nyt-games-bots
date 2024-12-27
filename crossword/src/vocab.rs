@@ -1,13 +1,21 @@
-use std::collections::HashMap;
+use serde::{Deserialize, Serialize};
+use std::{collections::HashMap, error::Error, fs};
 
 use itertools::Itertools;
 
 use crate::{square::Square, word::Word};
 
+const SERDE_VOCAB_PATH: &'static str = "./crossword-vocab.serde";
+const TXT_VOCAB_PATH: &'static str = "../word_list.txt";
+
+#[derive(Serialize, Deserialize)]
 pub(crate) struct Vocab {
     vocab: HashMap<Vec<Square>, Vec<Word>>,
-    // TODO: add word list that this data strcture referenes
-    // vocab: HashMap<Vec<Square>, Vec<&'a Word>>,
+}
+
+pub(crate) struct _Vocab<'a> {
+    partial_map: HashMap<Vec<Square>, Vec<&'a Word>>,
+    word_list: Vec<Word>,
 }
 
 // impl<'a> Vocab<'a> {
@@ -54,6 +62,33 @@ impl Vocab {
             .unwrap_or(&[]); // return empty slice if there aren't matches
 
         matching_words
+    }
+}
+
+pub(crate) fn load_cached_vocab() -> Result<Vocab, Box<dyn Error>> {
+    println!("Loading vocabulary...");
+
+    let load_vocab = || -> Result<Vocab, Box<dyn Error>> {
+        let f = fs::File::open(SERDE_VOCAB_PATH)?;
+        let vocab: Vocab = bincode::deserialize_from(f)?;
+        Ok(vocab)
+    };
+
+    match load_vocab() {
+        Ok(vocab) => Ok(vocab),
+        Err(err) => {
+            dbg!(err);
+            println!("Failed to load vocab file. Creating a new one...");
+
+            let word_list = fs::read_to_string(TXT_VOCAB_PATH)?;
+            let vocab = Vocab::new(word_list.split_whitespace());
+
+            println!("Vocab created. Writing to disc...");
+            let f = fs::File::create(SERDE_VOCAB_PATH)?;
+            bincode::serialize_into(f, &vocab)?;
+
+            Ok(vocab)
+        }
     }
 }
 
