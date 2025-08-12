@@ -1,16 +1,13 @@
+use std::fmt::Debug;
+
 use crate::node::{Key, Node};
 
+#[derive(Debug)]
 pub struct Trie<K>(Node<K>);
-
-enum Query<K> {
-    Matches(Key<K>),
-    AnySingle,
-    // AnyMultiple,
-}
 
 impl<K> Trie<K>
 where
-    K: Ord + Clone,
+    K: Ord + Clone + Debug,
 {
     pub fn new() -> Self {
         Self(Node::root())
@@ -35,6 +32,21 @@ where
             .map(|v| Key::Internal(v))
             .chain(std::iter::once(Key::End))
             .collect()
+    }
+
+    pub fn iter<'a>(&'a self) -> impl Iterator<Item = Vec<K>> + 'a {
+        self.0.iter_descendents(None).filter_map(|(a, _)| {
+            if let [None, middle @ .., None] = &a[..] {
+                Some(
+                    middle
+                        .iter()
+                        .filter_map(|x| x.cloned())
+                        .collect::<Vec<_>>(),
+                )
+            } else {
+                None
+            }
+        })
     }
 }
 
@@ -73,15 +85,18 @@ mod tests {
         assert!(trie.cost("foobar".chars()).is_none());
     }
 
-    // #[test]
-    // fn test_shared_prefixes() {
-    //     let mut trie: Trie<char> = Trie::new();
-    //     trie.push("car".chars(), 1);
-    //     trie.push("cart".chars(), 2);
-    //
-    //     assert!(trie.find("car".chars()));
-    //     assert!(trie.find("cart".chars()));
-    //     assert!(!trie.find("ca".chars()));
-    //     assert!(!trie.find("cars".chars()));
-    // }
+    #[test]
+    fn test_iter() {
+        let mut trie: Trie<char> = Trie::new();
+        trie.push("car".chars(), 5);
+        trie.push("cap".chars(), 6);
+
+        // trie.push("carthage".chars(), 1);
+        // trie.push("captive".chars(), 2);
+
+        let x: Vec<_> = trie.iter().collect();
+
+        dbg!(&x);
+        // dbg!(&trie);
+    }
 }

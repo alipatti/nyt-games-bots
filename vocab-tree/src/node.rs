@@ -1,3 +1,7 @@
+use std::fmt::Debug;
+
+use crate::traversals::{DfsTraversal, Query};
+
 #[derive(Debug)]
 pub(crate) struct Node<K> {
     contents: Key<K>,
@@ -15,10 +19,7 @@ pub(crate) enum Key<K> {
 #[derive(Debug)]
 struct Children<K>(Vec<Node<K>>);
 
-impl<K> Node<K>
-where
-    K: Ord + Clone,
-{
+impl<K: Debug> Node<K> {
     /// Create a root node with no children and maximum cost.
     pub(crate) fn root() -> Self {
         Self {
@@ -36,6 +37,44 @@ where
         }
     }
 
+    pub(crate) fn is_terminal(&self) -> bool {
+        match &self.contents {
+            Key::End => true,
+            _ => false,
+        }
+    }
+
+    pub(crate) fn key(&self) -> Option<&K> {
+        return match &self.contents {
+            Key::Internal(k) => Some(k),
+            _ => None,
+        };
+    }
+
+    /// Returns Some(cost) if node is terminal, `None` otherwise.
+    pub(crate) fn cost(&self) -> Option<usize> {
+        match self.contents {
+            Key::End => Some(self.min_subtree_cost),
+            _ => None,
+        }
+    }
+
+    pub(crate) fn iter_children(&self) -> impl Iterator<Item = &'_ Node<K>> {
+        self.children.into_iter()
+    }
+
+    pub(crate) fn iter_descendents<'a>(
+        &'a self,
+        pattern: Option<&'a [Query<K>]>,
+    ) -> impl Iterator<Item = (Vec<Option<&'a K>>, &'a Node<K>)> {
+        DfsTraversal::new(&self, pattern)
+    }
+}
+
+impl<K> Node<K>
+where
+    K: Ord + Clone + Debug,
+{
     /// Adds a node at the given suffix with the given cost.
     pub(crate) fn push(&mut self, suffix: &[Key<K>], cost: usize) -> &Self {
         // overwrite with new cost if it's lower
@@ -61,27 +100,19 @@ where
             Some(self) // found it!
         }
     }
-
-    /// Returns Some(cost) if node is terminal, `None` otherwise.
-    pub(crate) fn cost(&self) -> Option<usize> {
-        match self.contents {
-            Key::End => Some(self.min_subtree_cost),
-            _ => None,
-        }
-    }
 }
 
-impl<K> IntoIterator for Children<K> {
-    type Item = Node<K>;
+impl<'a, K> IntoIterator for &'a Children<K> {
+    type Item = &'a Node<K>;
 
-    type IntoIter = <Vec<Node<K>> as IntoIterator>::IntoIter;
+    type IntoIter = <&'a Vec<Node<K>> as IntoIterator>::IntoIter;
 
     fn into_iter(self) -> Self::IntoIter {
-        self.0.into_iter()
+        (&self.0).into_iter()
     }
 }
 
-impl<K: Ord + Clone> Children<K> {
+impl<K: Ord + Clone + Debug> Children<K> {
     /// Gets the child if it exists.
     fn get(&self, key: &Key<K>) -> Option<&Node<K>> {
         match self.0.binary_search_by_key(
