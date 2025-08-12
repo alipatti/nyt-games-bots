@@ -1,4 +1,3 @@
-use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, error::Error, fs};
 
 use itertools::Itertools;
@@ -8,50 +7,23 @@ use crate::{square::Square, word::Word};
 const SERDE_VOCAB_PATH: &'static str = "./crossword-vocab.serde";
 const TXT_VOCAB_PATH: &'static str = "../word_list.txt";
 
-#[derive(Serialize, Deserialize)]
-pub(crate) struct Vocab {
-    vocab: HashMap<Vec<Square>, Vec<Word>>,
-}
+type Score = usize;
 
-pub(crate) struct _Vocab<'a> {
-    partial_map: HashMap<Vec<Square>, Vec<&'a Word>>,
-    word_list: Vec<Word>,
-}
+/// Thin wrapper around a ternary search tree
+pub(crate) struct Vocab(tst::TSTMap<Score>);
 
-// impl<'a> Vocab<'a> {
 impl Vocab {
     pub(crate) fn new<'a, T>(word_list: T) -> Self
     where
-        T: IntoIterator<Item = &'a str>,
+        T: IntoIterator<Item = (&'a str, Score)>,
     {
-        let mut vocab = HashMap::new();
+        let mut tree = tst::TSTMap::new();
 
-        // convert strings to `Words`
-        let word_list = word_list
-            .into_iter()
-            .map(|w| Word::try_from(w.as_bytes()))
-            .filter_map(|w| w.ok()); // silently drop failed conversions
-
-        for word in word_list {
-            // TODO: handle errors
-
-            let partial_words = word
-                .chars
-                .iter()
-                .map(|c| Square::try_from(*c).unwrap()) // convert char to square
-                .map(|s| [s, Square::EMPTY]) // each square can possibly be empty
-                .multi_cartesian_product();
-
-            for partial_word in partial_words {
-                if !vocab.contains_key(&partial_word) {
-                    vocab.insert(partial_word.clone(), Vec::new());
-                }
-
-                vocab.get_mut(&partial_word).unwrap().push(word.clone())
-            }
+        for (word, score) in word_list {
+            tree.insert(word, score);
         }
 
-        Self { vocab }
+        Vocab(tree)
     }
 
     pub(crate) fn matches(&'_ self, squares: Vec<Square>) -> &'_ [Word] {
@@ -62,33 +34,6 @@ impl Vocab {
             .unwrap_or(&[]); // return empty slice if there aren't matches
 
         matching_words
-    }
-}
-
-pub(crate) fn load_cached_vocab() -> Result<Vocab, Box<dyn Error>> {
-    println!("Loading vocabulary...");
-
-    let load_vocab = || -> Result<Vocab, Box<dyn Error>> {
-        let f = fs::File::open(SERDE_VOCAB_PATH)?;
-        let vocab: Vocab = bincode::deserialize_from(f)?;
-        Ok(vocab)
-    };
-
-    match load_vocab() {
-        Ok(vocab) => Ok(vocab),
-        Err(err) => {
-            dbg!(err);
-            println!("Failed to load vocab file. Creating a new one...");
-
-            let word_list = fs::read_to_string(TXT_VOCAB_PATH)?;
-            let vocab = Vocab::new(word_list.split_whitespace());
-
-            println!("Vocab created. Writing to disc...");
-            let f = fs::File::create(SERDE_VOCAB_PATH)?;
-            bincode::serialize_into(f, &vocab)?;
-
-            Ok(vocab)
-        }
     }
 }
 

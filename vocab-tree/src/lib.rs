@@ -1,196 +1,141 @@
+pub struct Trie<K>(Node<K>);
+
 #[derive(Debug)]
-struct TrieNode<K, V> {
-    /// `None` if root
-    key: Option<K>,
-    value: Option<V>,
-    children: Vec<TrieNode<K, V>>,
+struct Node<K> {
+    contents: Key<K>,
+    min_subtree_cost: usize,
+    children: Children<K>,
 }
 
-impl<K, V> TrieNode<K, V>
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
+enum Key<K> {
+    Start,
+    Internal(K),
+    End,
+}
+
+enum Query<K> {
+    Matches(Key<K>),
+    AnySingle,
+    // AnyMultiple,
+}
+
+#[derive(Debug)]
+struct Children<K>(Vec<Node<K>>);
+
+impl<K> Trie<K>
 where
-    K: PartialEq + Clone,
+    K: Ord + Clone,
 {
-    /// Returns the old value if it exists
-    fn insert(
+    pub fn new() -> Self {
+        Self(Node::empty())
+    }
+
+    pub fn push(&mut self, value: impl IntoIterator<Item = K>, cost: usize) {
+        self.0.push(&Self::make_query(value), cost);
+    }
+
+    pub fn find(
         &mut self,
-        mut key: impl Iterator<Item = K>,
-        value: V,
-    ) -> Option<V> {
-        match key.next() {
-            // end of key, so insert value here
-            None => self.value.replace(value),
-            // recurse on the correct child
-            Some(k) => {
-                match self.children.iter_mut().find(|child| {
-                    *child
-                        .key
-                        .as_ref()
-                        .expect("guaranteed to be Some for non-root")
-                        == k
-                }) {
-                    Some(child) => child.insert(key, value),
-                    None => {
-                        let mut new_node = TrieNode {
-                            key: Some(k.clone()),
-                            value: None,
-                            children: vec![],
-                        };
-                        let result = new_node.insert(key, value);
-                        self.children.push(new_node);
-                        result
-                    }
-                }
-            }
-        }
+        value: impl IntoIterator<Item = K>,
+    ) -> Option<usize> {
+        self.0
+            .find(&Self::make_query(value))
+            .map(|n| n.min_subtree_cost)
     }
 
-    // TODO: can we just use search for this?
-    fn remove(&mut self, mut key: impl Iterator<Item = K>) -> Option<V> {
-        match key.next() {
-            None => self.value.take(),
-            Some(k) => {
-                if let Some(pos) = self.children.iter().position(|child| {
-                    *child
-                        .key
-                        .as_ref()
-                        .expect("guaranteed to be Some for non-root")
-                        == k
-                }) {
-                    let child = &mut self.children[pos];
-                    let removed = child.remove(key);
-
-                    if child.value.is_none() && child.children.is_empty() {
-                        self.children.remove(pos);
-                    }
-
-                    removed
-                } else {
-                    None
-                }
-            }
-        }
+    fn make_query(value: impl IntoIterator<Item = K>) -> Vec<Key<K>> {
+        value
+            .into_iter()
+            .map(|v| Key::Internal(v))
+            .chain(std::iter::once(Key::End))
+            .collect()
     }
-
-    /// Recursively searches and finds the descendent that matches a particular query.
-    fn search(&self, mut query: impl Iterator<Item = K>) -> Option<&Self> {
-        match query.next() {
-            Some(k) => self
-                .children
-                .iter()
-                .find(|child| {
-                    *child
-                        .key
-                        .as_ref()
-                        .expect("guaranteed to be Some for non-root")
-                        == k
-                })
-                .and_then(|child| child.search(query)),
-            None => Some(self),
-        }
-    }
-
-    /// Recursively searches and finds the descendent that matches a particular query.
-    /// None values in the query indicate that the query should match all children.
-    /// PERF: can we get rid of the dynamic dispach?
-    fn search_pattern<'a>(
-        &'a self,
-        mut query: impl Iterator<Item = Option<K>> + Clone + 'a,
-    ) -> Box<dyn Iterator<Item = &'a Self> + 'a> {
-        match query.next() {
-            // key given
-            Some(maybe_key) => Box::new(
-                self.children
-                    .iter()
-                    .filter(move |child| {
-                        maybe_key.as_ref().map_or(true, |key| {
-                            key == child
-                                .key
-                                .as_ref()
-                                .expect("guaranteed to be Some for non-root")
-                        })
-                    })
-                    .flat_map(move |child| child.search_pattern(query.clone())),
-            ),
-            None => Box::new(std::iter::once(self)),
-        }
-    }
-
-    // fn traceback(&self) -> impl Iterator<Item = K> {
-    //
-    // }
 }
 
-pub struct Trie<K, V> {
-    root: TrieNode<K, V>,
-}
-
-impl<K: Clone + PartialEq, V> Trie<K, V> {
-    pub fn empty() -> Self {
+impl<K> Node<K>
+where
+    K: Ord + Clone,
+{
+    fn empty() -> Self {
         Self {
-            root: TrieNode {
-                key: None,
-                value: None,
-                children: vec![],
-            },
+            min_subtree_cost: usize::MAX,
+            contents: Key::Start,
+            children: Children(Vec::new()),
         }
     }
 
-    pub fn is_empty(&self) -> bool {
-        self.root.children.is_empty()
-    }
-
-    /// Returns the old value if it exists
-    pub fn insert(
-        &mut self,
-        key: impl IntoIterator<Item = K>,
-        value: V,
-    ) -> Option<V> {
-        self.root.insert(key.into_iter(), value)
-    }
-
-    /// Returns the old value if it exists
-    pub fn remove(&mut self, key: impl IntoIterator<Item = K>) -> Option<V> {
-        self.root.remove(key.into_iter())
-    }
-
-    pub fn new<T>(
-        key_value_pairs: impl IntoIterator<Item = (impl IntoIterator<Item = K>, V)>,
-    ) -> Self {
-        let mut trie = Trie::empty();
-
-        for (key, value) in key_value_pairs {
-            trie.insert(key, value);
+    fn with_contents(contents: Key<K>) -> Self {
+        Self {
+            min_subtree_cost: usize::MAX,
+            contents,
+            children: Children(Vec::new()),
         }
-
-        trie
     }
 
-    pub fn get(&mut self, query: impl IntoIterator<Item = K>) -> Option<&V> {
-        self.root
-            .search(query.into_iter())
-            .and_then(|n| n.value.as_ref())
+    fn push(&mut self, suffix: &[Key<K>], cost: usize) -> &Self {
+        // overwrite with new cost if it's lower
+        self.min_subtree_cost = self.min_subtree_cost.min(cost);
+
+        if let [first, rest @ ..] = suffix {
+            // get child and recurse
+            self.children.get_or_create(first).push(rest, cost)
+        } else {
+            // we're done (suffix is empty slice)
+            self
+        }
     }
 
-    pub fn contains_prefix(
-        &mut self,
-        query: impl IntoIterator<Item = K>,
-    ) -> bool {
-        self.root.search(query.into_iter()).is_some()
+    fn find(&self, suffix: &[Key<K>]) -> Option<&Self> {
+        if let [first, rest @ ..] = suffix {
+            self.children.get(first).and_then(|n| n.find(rest))
+        } else {
+            Some(self) // found it!
+        }
+    }
+}
+
+impl<K> IntoIterator for Children<K> {
+    type Item = Node<K>;
+
+    type IntoIter = <Vec<Node<K>> as IntoIterator>::IntoIter;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
+    }
+}
+
+impl<K: Ord + Clone> Children<K> {
+    /// Gets the child if it exists.
+    fn get(&self, key: &Key<K>) -> Option<&Node<K>> {
+        match self.0.binary_search_by_key(
+            key,
+            |n| n.contents.clone(), // PERF: clone here isn't ideal
+        ) {
+            Ok(index) => self.0.get(index),
+            Err(_) => None,
+        }
     }
 
-    // pub fn get_matches<Q, T>(
-    //     &mut self,
-    //     query: Q,
-    // ) -> impl Iterator<Item = (T, &V)>
-    // where
-    //     Q: IntoIterator<Item = Option<K>>,
-    //     <Q as IntoIterator>::IntoIter: Clone,
-    //     T: Iterator<Item = K>
-    // {
-    //     let x = self.root.search_pattern(query.into_iter());
-    //
-    //     todo!()
-    // }
+    /// Gets the child if it exists. Creates it if not.
+    fn get_or_create(&mut self, key: &Key<K>) -> &mut Node<K> {
+        // PERF: linear search may honestly be better here
+        // (or hash map? should we let the user choose?)
+        match self.0.binary_search_by_key(
+            key,
+            |n| n.contents.clone(), // PERF: clone here isn't ideal
+        ) {
+            // exists, so return it
+            Ok(index) => self.0.get_mut(index),
+            // doesn't exist, so create and return it
+            Err(index) => {
+                let child = Node::with_contents(key.clone());
+                self.0.insert(index, child);
+                self.0.get_mut(index)
+            }
+        }
+        .expect("entry is guaranteed to exist")
+    }
 }
 
 #[cfg(test)]
@@ -198,39 +143,45 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_empty_trie() {
-        let trie: Trie<char, &str> = Trie::empty();
-        assert!(trie.is_empty());
+    fn test_empty_trie_does_not_contain_anything() {
+        let mut trie: Trie<char> = Trie::new();
+        assert!(trie.find("a".chars()).is_none());
+        assert!(trie.find("test".chars()).is_none());
     }
 
     #[test]
-    fn test_insert_and_get() {
-        let mut trie = Trie::empty();
-        trie.insert("cat".chars(), "meow");
-        assert_eq!(trie.get("cat".chars()), Some(&"meow"));
+    fn test_insert_and_query_single_word() {
+        let mut trie: Trie<char> = Trie::new();
+        trie.push("hello".chars(), 1);
+        assert_eq!(trie.find("hello".chars()), Some(1));
+        assert!(trie.find("hell".chars()).is_none());
+        assert!(trie.find("helloo".chars()).is_none());
     }
 
     #[test]
-    fn test_insert_two_remove_one() {
-        let mut trie = Trie::empty();
-        trie.insert("cat".chars(), "meow");
-        trie.insert("dog".chars(), "woof");
+    fn test_insert_multiple_words() {
+        let mut trie: Trie<char> = Trie::new();
+        trie.push("foo".chars(), 1);
+        trie.push("bar".chars(), 2);
+        trie.push("baz".chars(), 3);
 
-        trie.remove("cat".chars());
+        assert_eq!(trie.find("foo".chars()), Some(1));
+        assert_eq!(trie.find("bar".chars()), Some(2));
+        assert_eq!(trie.find("baz".chars()), Some(3));
 
-        assert_eq!(trie.get("cat".chars()), None);
-        assert_eq!(trie.get("dog".chars()), Some(&"woof"));
+        assert!(trie.find("ba".chars()).is_none());
+        assert!(trie.find("foobar".chars()).is_none());
     }
 
-    #[test]
-    fn test_insert_two_remove_two() {
-        let mut trie = Trie::empty();
-        trie.insert("cat".chars(), "meow");
-        trie.insert("dog".chars(), "woof");
-
-        trie.remove("cat".chars());
-        trie.remove("dog".chars());
-
-        assert!(trie.is_empty());
-    }
+    // #[test]
+    // fn test_shared_prefixes() {
+    //     let mut trie: Trie<char> = Trie::new();
+    //     trie.push("car".chars(), 1);
+    //     trie.push("cart".chars(), 2);
+    //
+    //     assert!(trie.find("car".chars()));
+    //     assert!(trie.find("cart".chars()));
+    //     assert!(!trie.find("ca".chars()));
+    //     assert!(!trie.find("cars".chars()));
+    // }
 }

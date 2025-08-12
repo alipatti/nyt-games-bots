@@ -1,9 +1,6 @@
 use std::fmt::{Debug, Write};
 
-use serde::{Serialize, Deserialize};
-
-const EMPTY_CHAR: char = ' ';
-const BLOCKED_CHAR: char = '#';
+use serde::{Deserialize, Serialize};
 
 /// A square in a crossword puzzle. Guaranteed to contain 0, 1, or a
 /// valid ASCII uppercase character.
@@ -12,9 +9,10 @@ pub(super) struct Square(u8);
 
 impl Square {
     pub(super) const EMPTY: Self = Self(0);
-    pub(super)const BLOCKED: Self = Self(1);
-    const EMPTY_CHAR: char = ' ';
-    const BLOCKED_CHAR: char = '#';
+    pub(super) const BLOCKED: Self = Self(1);
+
+    const _EMPTY_CHAR: char = ' ';
+    const _BLOCKED_CHAR: char = '#';
 
     pub(crate) fn is_empty(&self) -> bool {
         *self == Self::EMPTY
@@ -27,17 +25,21 @@ impl Square {
     pub(crate) fn matches(&self, char: u8) -> bool {
         self.is_empty() || self.0 == char
     }
+
+    pub(crate) fn as_char(&self) -> char {
+        if self.is_empty() {
+            Square::_EMPTY_CHAR
+        } else if self.is_blocked() {
+            Square::_BLOCKED_CHAR
+        } else {
+            self.0 as char
+        }
+    }
 }
 
 impl Debug for Square {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_char(if self.is_empty() {
-            EMPTY_CHAR
-        } else if self.is_blocked() {
-            BLOCKED_CHAR
-        } else {
-            self.0 as char
-        })
+        f.write_char(self.as_char())
     }
 }
 
@@ -62,9 +64,9 @@ impl TryFrom<char> for Square {
     type Error = &'static str;
 
     fn try_from(value: char) -> Result<Self, Self::Error> {
-        if value == Self::EMPTY_CHAR {
+        if value == Self::_EMPTY_CHAR {
             Ok(Self(0)) // empty
-        } else if value == Self::BLOCKED_CHAR {
+        } else if value == Self::_BLOCKED_CHAR {
             Ok(Self(1))
         } else if value.is_ascii_uppercase() {
             Ok(Self(value as u8))
@@ -86,11 +88,10 @@ mod tests {
         Square::try_from('X').expect("Should be a X.");
         Square::try_from(' ').expect("Should be an empty square.");
         Square::try_from('#').expect("Should be a blocked square.");
-        
+
         Square::try_from('*').expect_err("Should be an invalid square.");
         Square::try_from('_').expect_err("Should be an invalid square.");
         Square::try_from('$').expect_err("Should be an invalid square.");
         Square::try_from('/').expect_err("Should be an invalid square.");
-
     }
 }

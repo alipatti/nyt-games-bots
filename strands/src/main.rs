@@ -1,5 +1,5 @@
 use scraper::{Html, Selector};
-use std::{error::Error, vec};
+use std::error::Error;
 
 const STRANDS_URL: &str = "https://www.nytimes.com/games/strands";
 const STRANDS_LETTER_SELECTOR: &str = "[id^=button]";
