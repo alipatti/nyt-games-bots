@@ -1,165 +1,196 @@
-use std::borrow::{Borrow, BorrowMut};
+#[derive(Debug)]
+struct TrieNode<K, V> {
+    /// `None` if root
+    key: Option<K>,
+    value: Option<V>,
+    children: Vec<TrieNode<K, V>>,
+}
 
-pub struct Vocabulary<'a, T>
+impl<K, V> TrieNode<K, V>
 where
-    T: Clone + Eq,
+    K: PartialEq + Clone,
 {
-    root: Node<'a, T>,
-}
-
-enum Node<'a, T> {
-    Root {
-        children: Vec<Box<Self>>,
-    },
-    Internal {
-        letter: T,
-        children: Vec<Box<Self>>,
-        parent: &'a Self,
-    },
-    Leaf,
-}
-
-type Word<T> = [T];
-type WordFragment<T> = [Option<T>];
-
-pub struct SearchResult<'a, 'b, T: Clone + Eq> {
-    word_fragment: &'b WordFragment<T>,
-    remaining_nodes: std::slice::Iter<'a, Box<Node<T>>>,
-    current_iterator: Option<Box<Self>>,
-}
-
-impl<T: Clone + Eq> Node<T> {
-    pub fn insert(&mut self, word: &Word<T>) {
-        let next_letter = &word[0];
-        let rest_of_word = &word[1..];
-
-        if let Node::Internal { children, .. } = self {
-            // find matching child
-            let child = children
-                .iter_mut()
-                .filter(|n| match &***n {
-                    Node::Internal { letter, .. }
-                        if { letter == next_letter } =>
-                    {
-                        true
+    /// Returns the old value if it exists
+    fn insert(
+        &mut self,
+        mut key: impl Iterator<Item = K>,
+        value: V,
+    ) -> Option<V> {
+        match key.next() {
+            // end of key, so insert value here
+            None => self.value.replace(value),
+            // recurse on the correct child
+            Some(k) => {
+                match self.children.iter_mut().find(|child| {
+                    *child
+                        .key
+                        .as_ref()
+                        .expect("guaranteed to be Some for non-root")
+                        == k
+                }) {
+                    Some(child) => child.insert(key, value),
+                    None => {
+                        let mut new_node = TrieNode {
+                            key: Some(k.clone()),
+                            value: None,
+                            children: vec![],
+                        };
+                        let result = new_node.insert(key, value);
+                        self.children.push(new_node);
+                        result
                     }
-                    _ => false,
+                }
+            }
+        }
+    }
+
+    // TODO: can we just use search for this?
+    fn remove(&mut self, mut key: impl Iterator<Item = K>) -> Option<V> {
+        match key.next() {
+            None => self.value.take(),
+            Some(k) => {
+                if let Some(pos) = self.children.iter().position(|child| {
+                    *child
+                        .key
+                        .as_ref()
+                        .expect("guaranteed to be Some for non-root")
+                        == k
+                }) {
+                    let child = &mut self.children[pos];
+                    let removed = child.remove(key);
+
+                    if child.value.is_none() && child.children.is_empty() {
+                        self.children.remove(pos);
+                    }
+
+                    removed
+                } else {
+                    None
+                }
+            }
+        }
+    }
+
+    /// Recursively searches and finds the descendent that matches a particular query.
+    fn search(&self, mut query: impl Iterator<Item = K>) -> Option<&Self> {
+        match query.next() {
+            Some(k) => self
+                .children
+                .iter()
+                .find(|child| {
+                    *child
+                        .key
+                        .as_ref()
+                        .expect("guaranteed to be Some for non-root")
+                        == k
                 })
-                .next();
-
-            // add child if there is no matching child
-            let child = match child {
-                Some(node) => node,
-                None => {
-                    let new_child = Box::new(Node::Internal {
-                        letter: next_letter.clone(),
-                        children: Vec::new(),
-                    });
-                    children.push(new_child);
-
-                    children.last_mut().unwrap()
-                }
-            };
-
-            child.insert(rest_of_word);
-        }
-    }
-}
-
-impl<T: Clone + Eq> Vocabulary<T> {
-    /// Inserts a word into the vocabulary.
-    pub fn insert(&mut self, word: &Word<T>) {
-        self.root.insert(word);
-    }
-
-    /// Checks whether or not a word is contained in the vocabulary.
-    pub fn contains(&self, word: &Word<T>) -> bool {
-        // convert word into word fragment, then use the `matching` function to check if it's in
-        // the tree
-        let word_as_fragment: Vec<_> =
-            word.iter().map(|x| Some(x.to_owned())).collect();
-
-        match self.matching(&word_as_fragment).into_iter().next() {
-            Some(_) => true,
-            None => false,
+                .and_then(|child| child.search(query)),
+            None => Some(self),
         }
     }
 
-    /// Returns an iterator of words matching the word pattern
-    pub fn matching<'a>(
+    /// Recursively searches and finds the descendent that matches a particular query.
+    /// None values in the query indicate that the query should match all children.
+    /// PERF: can we get rid of the dynamic dispach?
+    fn search_pattern<'a>(
         &'a self,
-        word_fragment: &'a WordFragment<T>,
-    ) -> SearchResult<T> {
-        SearchResult::new(&self.root, word_fragment)
-            .expect("Can't call matching on a leaf")
-    }
-}
-
-impl<'a, T: Clone + Eq> SearchResult<'a, 'a, T> {
-    fn new(
-        root: &'a Node<T>,
-        word_fragment: &'a WordFragment<T>,
-    ) -> Option<Self> {
-        let remaining_nodes = match root {
-            Node::Internal { children, .. } => children.iter(),
-            Node::Leaf => [].iter(),
-        };
-
-        Some(Self {
-            word_fragment,
-            remaining_nodes,
-            current_iterator: todo!(),
-        })
-    }
-}
-
-impl<'a, T: Clone + Eq> Iterator for SearchResult<'a, 'a, T> {
-    type Item = Vec<T>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let current_iterator = self.current_iterator.as_deref_mut().unwrap();
-
-        // if the pattern is empty and this node has a terminal child, we're done.
-
-        // if the current iterator has items, return those
-        if let Some(result) = current_iterator.next() {
-            // TODO: return the maching word
-            return Some(result);
+        mut query: impl Iterator<Item = Option<K>> + Clone + 'a,
+    ) -> Box<dyn Iterator<Item = &'a Self> + 'a> {
+        match query.next() {
+            // key given
+            Some(maybe_key) => Box::new(
+                self.children
+                    .iter()
+                    .filter(move |child| {
+                        maybe_key.as_ref().map_or(true, |key| {
+                            key == child
+                                .key
+                                .as_ref()
+                                .expect("guaranteed to be Some for non-root")
+                        })
+                    })
+                    .flat_map(move |child| child.search_pattern(query.clone())),
+            ),
+            None => Box::new(std::iter::once(self)),
         }
+    }
 
-        // if the current iterator is empty, get a new one from the next child.
-        // if there is no matching next child, return None (i.e., we've explored the whole tree)
-        let next_node = self
-            .remaining_nodes
-            .borrow_mut()
-            .filter(|n| match (&self.word_fragment[0], &***n) {
-                (Some(letter_to_match), Node::Internal { letter, .. })
-                    if { letter != letter_to_match } =>
-                {
-                    false
-                }
-                _ => true,
-            })
-            .next();
+    // fn traceback(&self) -> impl Iterator<Item = K> {
+    //
+    // }
+}
 
-        // if the child is a leaf, return
-        // if internal, update the current iterator
-        match next_node {
-            Some(node) => match &**node {
-                Node::Internal { .. } => todo!(),
-                Node::Leaf => {
-                    let word = vec![];
-                    return Some(word);
-                }
+pub struct Trie<K, V> {
+    root: TrieNode<K, V>,
+}
+
+impl<K: Clone + PartialEq, V> Trie<K, V> {
+    pub fn empty() -> Self {
+        Self {
+            root: TrieNode {
+                key: None,
+                value: None,
+                children: vec![],
             },
-            None => return None,
+        }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.root.children.is_empty()
+    }
+
+    /// Returns the old value if it exists
+    pub fn insert(
+        &mut self,
+        key: impl IntoIterator<Item = K>,
+        value: V,
+    ) -> Option<V> {
+        self.root.insert(key.into_iter(), value)
+    }
+
+    /// Returns the old value if it exists
+    pub fn remove(&mut self, key: impl IntoIterator<Item = K>) -> Option<V> {
+        self.root.remove(key.into_iter())
+    }
+
+    pub fn new<T>(
+        key_value_pairs: impl IntoIterator<Item = (impl IntoIterator<Item = K>, V)>,
+    ) -> Self {
+        let mut trie = Trie::empty();
+
+        for (key, value) in key_value_pairs {
+            trie.insert(key, value);
         }
 
-        // yield from child until it's empty
-
-        // entire tree explored
-        None
+        trie
     }
+
+    pub fn get(&mut self, query: impl IntoIterator<Item = K>) -> Option<&V> {
+        self.root
+            .search(query.into_iter())
+            .and_then(|n| n.value.as_ref())
+    }
+
+    pub fn contains_prefix(
+        &mut self,
+        query: impl IntoIterator<Item = K>,
+    ) -> bool {
+        self.root.search(query.into_iter()).is_some()
+    }
+
+    // pub fn get_matches<Q, T>(
+    //     &mut self,
+    //     query: Q,
+    // ) -> impl Iterator<Item = (T, &V)>
+    // where
+    //     Q: IntoIterator<Item = Option<K>>,
+    //     <Q as IntoIterator>::IntoIter: Clone,
+    //     T: Iterator<Item = K>
+    // {
+    //     let x = self.root.search_pattern(query.into_iter());
+    //
+    //     todo!()
+    // }
 }
 
 #[cfg(test)]
@@ -167,5 +198,39 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_add_word() {}
+    fn test_empty_trie() {
+        let trie: Trie<char, &str> = Trie::empty();
+        assert!(trie.is_empty());
+    }
+
+    #[test]
+    fn test_insert_and_get() {
+        let mut trie = Trie::empty();
+        trie.insert("cat".chars(), "meow");
+        assert_eq!(trie.get("cat".chars()), Some(&"meow"));
+    }
+
+    #[test]
+    fn test_insert_two_remove_one() {
+        let mut trie = Trie::empty();
+        trie.insert("cat".chars(), "meow");
+        trie.insert("dog".chars(), "woof");
+
+        trie.remove("cat".chars());
+
+        assert_eq!(trie.get("cat".chars()), None);
+        assert_eq!(trie.get("dog".chars()), Some(&"woof"));
+    }
+
+    #[test]
+    fn test_insert_two_remove_two() {
+        let mut trie = Trie::empty();
+        trie.insert("cat".chars(), "meow");
+        trie.insert("dog".chars(), "woof");
+
+        trie.remove("cat".chars());
+        trie.remove("dog".chars());
+
+        assert!(trie.is_empty());
+    }
 }
