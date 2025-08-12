@@ -20,7 +20,7 @@ where
     K: Ord + Clone,
 {
     /// Create a root node with no children and maximum cost.
-    pub(crate) fn empty() -> Self {
+    pub(crate) fn root() -> Self {
         Self {
             min_subtree_cost: usize::MAX,
             contents: Key::Start,
@@ -36,6 +36,7 @@ where
         }
     }
 
+    /// Adds a node at the given suffix with the given cost.
     pub(crate) fn push(&mut self, suffix: &[Key<K>], cost: usize) -> &Self {
         // overwrite with new cost if it's lower
         self.min_subtree_cost = self.min_subtree_cost.min(cost);
@@ -49,14 +50,19 @@ where
         }
     }
 
+    /// Returns `Some(node)` if `self` contains a descendent at the address `suffix`.
+    /// Returns `None` if not.
     pub(crate) fn find_descendent(&self, suffix: &[Key<K>]) -> Option<&Self> {
         if let [first, rest @ ..] = suffix {
-            self.children.get(first).and_then(|n| n.find_descendent(rest))
+            self.children
+                .get(first)
+                .and_then(|n| n.find_descendent(rest))
         } else {
             Some(self) // found it!
         }
     }
 
+    /// Returns Some(cost) if node is terminal, `None` otherwise.
     pub(crate) fn cost(&self) -> Option<usize> {
         match self.contents {
             Key::End => Some(self.min_subtree_cost),
