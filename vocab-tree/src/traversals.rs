@@ -36,9 +36,6 @@ impl<'a, K: Debug + Ord + Clone> Iterator for DfsTraversal<'a, K> {
             let remainig_pattern =
                 self.pattern.as_ref().map(|p| &p[prefix.len()..]);
 
-            dbg!(&prefix);
-            dbg!(&remainig_pattern);
-
             match remainig_pattern {
                 // no pattern OR next pattern is Query::Any
                 None | Some([Query::Any, ..]) => {
