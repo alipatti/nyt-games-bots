@@ -34,10 +34,10 @@ impl<K: Debug + Clone + Ord> Node<K> {
     }
 
     pub(crate) fn key(&self) -> Option<&K> {
-        return match &self.contents {
+        match &self.contents {
             Key::Internal(k) => Some(k),
             _ => None,
-        };
+        }
     }
 
     /// Returns Some(cost) if node is terminal, `None` otherwise.
@@ -52,11 +52,11 @@ impl<K: Debug + Clone + Ord> Node<K> {
         self.children.into_iter()
     }
 
-    pub(crate) fn iter_descendents<'a>(
-        &'a self,
+    pub(crate) fn iter_descendents(
+        &self,
         pattern: Option<Vec<Query<K>>>,
-    ) -> impl Iterator<Item = (Vec<Option<&'a K>>, &'a Node<K>)> {
-        DfsTraversal::new(&self, pattern)
+    ) -> impl Iterator<Item = (Vec<Option<&K>>, &Node<K>)> {
+        DfsTraversal::new(self, pattern)
     }
 
     /// Adds a node at the given suffix with the given cost.
@@ -92,7 +92,7 @@ impl<'a, K> IntoIterator for &'a Children<K> {
     type IntoIter = <&'a Vec<Node<K>> as IntoIterator>::IntoIter;
 
     fn into_iter(self) -> Self::IntoIter {
-        (&self.0).into_iter()
+        self.0.iter()
     }
 }
 

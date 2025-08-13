@@ -8,6 +8,15 @@ use crate::{
 #[derive(Debug)]
 pub struct Trie<K>(Node<K>);
 
+impl<K> Default for Trie<K>
+where
+    K: Ord + Clone + Debug,
+ {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<K> Trie<K>
 where
     K: Ord + Clone + Debug,
@@ -104,7 +113,7 @@ mod tests {
     #[test]
     fn test_iter() {
         let mut words: Vec<Vec<char>> =
-            vec!["car", "cap", "carthage", "captive"]
+            ["car", "cap", "carthage", "captive"]
                 .iter()
                 .map(|x| x.chars().collect())
                 .collect();
@@ -125,7 +134,7 @@ mod tests {
     #[test]
     fn test_iter_pattern() {
         let words: Vec<Vec<char>> =
-            vec!["car", "cap", "cop", "carthage", "captive"]
+            ["car", "cap", "cop", "carthage", "captive"]
                 .iter()
                 .map(|x| x.chars().collect())
                 .collect();
