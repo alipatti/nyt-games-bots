@@ -7,16 +7,16 @@ pub(crate) enum Query<K> {
     Any,
 }
 
-pub(crate) struct DfsTraversal<'a, K> {
+pub(crate) struct DfsTraversal<'a, K, V> {
     // PERF: storing the whole prefix is not optimal.
     // is there a way to have nodes store pointers to their parents?
-    stack: Vec<Vec<&'a Node<K>>>,
+    stack: Vec<Vec<&'a Node<K, V>>>,
     pattern: Option<Vec<Query<K>>>,
 }
 
-impl<'a, K> DfsTraversal<'a, K> {
+impl<'a, K, V> DfsTraversal<'a, K, V> {
     pub(crate) fn new(
-        root: &'a Node<K>,
+        root: &'a Node<K, V>,
         pattern: Option<Vec<Query<K>>>,
     ) -> Self {
         Self {
@@ -26,8 +26,10 @@ impl<'a, K> DfsTraversal<'a, K> {
     }
 }
 
-impl<'a, K: Debug + Ord + Clone> Iterator for DfsTraversal<'a, K> {
-    type Item = (Vec<Option<&'a K>>, &'a Node<K>);
+impl<'a, K: Debug + Ord + Clone, V: Debug + Clone + Ord> Iterator
+    for DfsTraversal<'a, K, V>
+{
+    type Item = (Vec<Option<&'a K>>, &'a Node<K, V>);
 
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(prefix) = self.stack.pop() {

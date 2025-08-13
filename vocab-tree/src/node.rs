@@ -3,10 +3,11 @@ use std::fmt::Debug;
 use crate::traversals::{DfsTraversal, Query};
 
 #[derive(Debug)]
-pub(crate) struct Node<K> {
+pub(crate) struct Node<K, V> {
     pub(crate) contents: Key<K>,
-    pub(crate) children: Children<K>,
-    min_subtree_cost: usize,
+    pub(crate) children: Children<K, V>,
+    /// INVARIANT: `None` iff root
+    min_descendent: Option<V>,
 }
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
@@ -17,9 +18,9 @@ pub(crate) enum Key<K> {
 }
 
 #[derive(Debug)]
-pub(crate) struct Children<K>(Vec<Node<K>>);
+pub(crate) struct Children<K, V>(Vec<Node<K, V>>);
 
-impl<K: Debug + Clone + Ord> Node<K> {
+impl<K: Debug + Clone + Ord, V: Debug + Ord + Clone> Node<K, V> {
     /// Create a root node with no children and maximum cost.
     pub(crate) fn new() -> Self {
         Self::with_contents(Key::Start)
@@ -27,7 +28,7 @@ impl<K: Debug + Clone + Ord> Node<K> {
 
     fn with_contents(contents: Key<K>) -> Self {
         Self {
-            min_subtree_cost: usize::MAX,
+            min_descendent: None,
             contents,
             children: Children(Vec::new()),
         }
@@ -41,32 +42,37 @@ impl<K: Debug + Clone + Ord> Node<K> {
     }
 
     /// Returns Some(cost) if node is terminal, `None` otherwise.
-    pub(crate) fn cost(&self) -> Option<usize> {
-        match self.contents {
-            Key::End => Some(self.min_subtree_cost),
+    pub(crate) fn cost(&self) -> Option<&V> {
+        match &self.contents {
+            Key::End => self.min_descendent.as_ref(),
             _ => None,
         }
     }
 
-    pub(crate) fn iter_children(&self) -> impl Iterator<Item = &'_ Node<K>> {
+    pub(crate) fn iter_children(&self) -> impl Iterator<Item = &'_ Node<K, V>> {
         self.children.into_iter()
     }
 
     pub(crate) fn iter_descendents(
         &self,
         pattern: Option<Vec<Query<K>>>,
-    ) -> impl Iterator<Item = (Vec<Option<&K>>, &Node<K>)> {
+    ) -> impl Iterator<Item = (Vec<Option<&K>>, &Node<K, V>)> {
         DfsTraversal::new(self, pattern)
     }
 
     /// Adds a node at the given suffix with the given cost.
-    pub(crate) fn push(&mut self, suffix: &[Key<K>], cost: usize) -> &Self {
-        // overwrite with new cost if it's lower
-        self.min_subtree_cost = self.min_subtree_cost.min(cost);
+    pub(crate) fn push(&mut self, suffix: &[Key<K>], value: V) -> &Self {
+        if self.min_descendent.is_none() {
+            // we're at the root
+            self.min_descendent = Some(value.clone());
+        } else if value < *self.min_descendent.as_ref().unwrap() {
+            // we're inserting a smaller value
+            self.min_descendent = Some(value.clone())
+        }
 
         if let [first, rest @ ..] = suffix {
             // get child and recurse
-            self.children.get_or_create(first).push(rest, cost)
+            self.children.get_or_create(first).push(rest, value)
         } else {
             // we're done (suffix is empty slice)
             self
@@ -86,19 +92,19 @@ impl<K: Debug + Clone + Ord> Node<K> {
     }
 }
 
-impl<'a, K> IntoIterator for &'a Children<K> {
-    type Item = &'a Node<K>;
+impl<'a, K, V> IntoIterator for &'a Children<K, V> {
+    type Item = &'a Node<K, V>;
 
-    type IntoIter = <&'a Vec<Node<K>> as IntoIterator>::IntoIter;
+    type IntoIter = <&'a Vec<Node<K, V>> as IntoIterator>::IntoIter;
 
     fn into_iter(self) -> Self::IntoIter {
         self.0.iter()
     }
 }
 
-impl<K: Ord + Clone + Debug> Children<K> {
+impl<K: Ord + Clone + Debug, V: Debug + Ord + Clone> Children<K, V> {
     /// Gets the child if it exists.
-    pub(crate) fn get(&self, key: &Key<K>) -> Option<&Node<K>> {
+    pub(crate) fn get(&self, key: &Key<K>) -> Option<&Node<K, V>> {
         match self.0.binary_search_by_key(
             key,
             |n| n.contents.clone(), // PERF: clone here isn't ideal
@@ -109,7 +115,7 @@ impl<K: Ord + Clone + Debug> Children<K> {
     }
 
     /// Gets the child if it exists. Creates it if not.
-    fn get_or_create(&mut self, key: &Key<K>) -> &mut Node<K> {
+    fn get_or_create(&mut self, key: &Key<K>) -> &mut Node<K, V> {
         // PERF: linear search may honestly be better here
         // (or hash map? should we let the user choose?)
         match self.0.binary_search_by_key(

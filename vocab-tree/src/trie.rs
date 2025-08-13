@@ -6,41 +6,39 @@ use crate::{
 };
 
 #[derive(Debug)]
-pub struct Trie<K>(Node<K>);
+pub struct Trie<K, V>(Node<K, V>);
 
-impl<K> Default for Trie<K>
+impl<K, V> Default for Trie<K, V>
 where
     K: Ord + Clone + Debug,
+    V: Ord + Clone + Debug,
 {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<K> Trie<K>
+impl<K, V> Trie<K, V>
 where
     K: Ord + Clone + Debug,
+    V: Ord + Clone + Debug,
 {
     pub fn new() -> Self {
         Self(Node::new())
     }
 
-    pub fn push(&mut self, value: impl IntoIterator<Item = K>, cost: usize) {
-        self.0.push(&Self::make_query(value), cost);
+    pub fn push(&mut self, keys: impl IntoIterator<Item = K>, value: V) {
+        self.0.push(&Self::make_query(keys), value);
     }
 
-    pub fn cost(
-        &mut self,
-        value: impl IntoIterator<Item = K>,
-    ) -> Option<usize> {
+    pub fn cost(&mut self, keys: impl IntoIterator<Item = K>) -> Option<&V> {
         self.0
-            .find_descendent(&Self::make_query(value))
+            .find_descendent(&Self::make_query(keys))
             .map(|n| n.cost().expect("node must be terminal"))
     }
 
-    fn make_query(value: impl IntoIterator<Item = K>) -> Vec<Key<K>> {
-        value
-            .into_iter()
+    fn make_query(keys: impl IntoIterator<Item = K>) -> Vec<Key<K>> {
+        keys.into_iter()
             .map(|v| Key::Internal(v))
             .chain(std::iter::once(Key::End))
             .collect()
@@ -81,30 +79,30 @@ mod tests {
 
     #[test]
     fn test_empty_trie_does_not_contain_anything() {
-        let mut trie: Trie<char> = Trie::new();
+        let mut trie: Trie<char, usize> = Trie::new();
         assert!(trie.cost("a".chars()).is_none());
         assert!(trie.cost("test".chars()).is_none());
     }
 
     #[test]
     fn test_insert_and_query_single_word() {
-        let mut trie: Trie<char> = Trie::new();
+        let mut trie: Trie<char, usize> = Trie::new();
         trie.push("hello".chars(), 1);
-        assert_eq!(trie.cost("hello".chars()), Some(1));
+        assert_eq!(trie.cost("hello".chars()), Some(&1));
         assert!(trie.cost("hell".chars()).is_none());
         assert!(trie.cost("helloo".chars()).is_none());
     }
 
     #[test]
     fn test_insert_multiple_words() {
-        let mut trie: Trie<char> = Trie::new();
+        let mut trie: Trie<char, usize> = Trie::new();
         trie.push("foo".chars(), 1);
         trie.push("bar".chars(), 2);
         trie.push("baz".chars(), 3);
 
-        assert_eq!(trie.cost("foo".chars()), Some(1));
-        assert_eq!(trie.cost("bar".chars()), Some(2));
-        assert_eq!(trie.cost("baz".chars()), Some(3));
+        assert_eq!(trie.cost("foo".chars()), Some(&1));
+        assert_eq!(trie.cost("bar".chars()), Some(&2));
+        assert_eq!(trie.cost("baz".chars()), Some(&3));
 
         assert!(trie.cost("ba".chars()).is_none());
         assert!(trie.cost("foobar".chars()).is_none());
@@ -117,9 +115,9 @@ mod tests {
             .map(|x| x.chars().collect())
             .collect();
 
-        let mut trie: Trie<char> = Trie::new();
-        for (i, w) in words.iter().enumerate() {
-            trie.push(w.clone(), i);
+        let mut trie: Trie<char, ()> = Trie::new();
+        for w in words.iter() {
+            trie.push(w.clone(), ());
         }
 
         let mut matches: Vec<Vec<char>> = trie.iter(None).collect();
@@ -138,9 +136,9 @@ mod tests {
                 .map(|x| x.chars().collect())
                 .collect();
 
-        let mut trie: Trie<char> = Trie::new();
-        for (i, w) in words.iter().enumerate() {
-            trie.push(w.clone(), i);
+        let mut trie: Trie<char, ()> = Trie::new();
+        for w in words.iter() {
+            trie.push(w.clone(), ());
         }
 
         let pattern = vec![Some('c'), None, Some('p')];
