@@ -31,10 +31,10 @@ where
         self.0.push(&Self::make_query(keys), value);
     }
 
-    pub fn cost(&mut self, keys: impl IntoIterator<Item = K>) -> Option<&V> {
+    pub fn value(&mut self, keys: impl IntoIterator<Item = K>) -> Option<&V> {
         self.0
             .find_descendent(&Self::make_query(keys))
-            .map(|n| n.cost().expect("node must be terminal"))
+            .map(|n| n.value().expect("node must be terminal"))
     }
 
     fn make_query(keys: impl IntoIterator<Item = K>) -> Vec<Key<K>> {
@@ -80,17 +80,17 @@ mod tests {
     #[test]
     fn test_empty_trie_does_not_contain_anything() {
         let mut trie: Trie<char, usize> = Trie::new();
-        assert!(trie.cost("a".chars()).is_none());
-        assert!(trie.cost("test".chars()).is_none());
+        assert!(trie.value("a".chars()).is_none());
+        assert!(trie.value("test".chars()).is_none());
     }
 
     #[test]
     fn test_insert_and_query_single_word() {
         let mut trie: Trie<char, usize> = Trie::new();
         trie.push("hello".chars(), 1);
-        assert_eq!(trie.cost("hello".chars()), Some(&1));
-        assert!(trie.cost("hell".chars()).is_none());
-        assert!(trie.cost("helloo".chars()).is_none());
+        assert_eq!(trie.value("hello".chars()), Some(&1));
+        assert!(trie.value("hell".chars()).is_none());
+        assert!(trie.value("helloo".chars()).is_none());
     }
 
     #[test]
@@ -100,12 +100,12 @@ mod tests {
         trie.push("bar".chars(), 2);
         trie.push("baz".chars(), 3);
 
-        assert_eq!(trie.cost("foo".chars()), Some(&1));
-        assert_eq!(trie.cost("bar".chars()), Some(&2));
-        assert_eq!(trie.cost("baz".chars()), Some(&3));
+        assert_eq!(trie.value("foo".chars()), Some(&1));
+        assert_eq!(trie.value("bar".chars()), Some(&2));
+        assert_eq!(trie.value("baz".chars()), Some(&3));
 
-        assert!(trie.cost("ba".chars()).is_none());
-        assert!(trie.cost("foobar".chars()).is_none());
+        assert!(trie.value("ba".chars()).is_none());
+        assert!(trie.value("foobar".chars()).is_none());
     }
 
     #[test]

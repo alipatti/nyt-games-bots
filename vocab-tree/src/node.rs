@@ -21,7 +21,6 @@ pub(crate) enum Key<K> {
 pub(crate) struct Children<K, V>(Vec<Node<K, V>>);
 
 impl<K: Debug + Clone + Ord, V: Debug + Ord + Clone> Node<K, V> {
-    /// Create a root node with no children and maximum cost.
     pub(crate) fn new() -> Self {
         Self::with_contents(Key::Start)
     }
@@ -41,8 +40,8 @@ impl<K: Debug + Clone + Ord, V: Debug + Ord + Clone> Node<K, V> {
         }
     }
 
-    /// Returns Some(cost) if node is terminal, `None` otherwise.
-    pub(crate) fn cost(&self) -> Option<&V> {
+    /// Returns Some(v) if node is terminal, `None` otherwise.
+    pub(crate) fn value(&self) -> Option<&V> {
         match &self.contents {
             Key::End => self.min_descendent.as_ref(),
             _ => None,
@@ -60,7 +59,7 @@ impl<K: Debug + Clone + Ord, V: Debug + Ord + Clone> Node<K, V> {
         DfsTraversal::new(self, pattern)
     }
 
-    /// Adds a node at the given suffix with the given cost.
+    /// Adds a node at the given suffix with the given value
     pub(crate) fn push(&mut self, suffix: &[Key<K>], value: V) -> &Self {
         if self.min_descendent.is_none() {
             // we're at the root
