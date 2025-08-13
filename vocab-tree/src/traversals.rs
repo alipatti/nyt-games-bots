@@ -8,6 +8,8 @@ pub(crate) enum Query<K> {
 }
 
 pub(crate) struct DfsTraversal<'a, K> {
+    // PERF: storing the whole prefix is not optimal.
+    // is there a way to have nodes store pointers to their parents?
     stack: Vec<Vec<&'a Node<K>>>,
     pattern: Option<Vec<Query<K>>>,
 }
@@ -31,7 +33,8 @@ impl<'a, 'b, K: Debug + Ord + Clone> Iterator for DfsTraversal<'a, K> {
         if let Some(prefix) = self.stack.pop() {
             let node = prefix.last().expect("guaranteed to be non-empty");
 
-            let remainig_pattern = self.pattern.as_ref().map(|p| &p[prefix.len()..]);
+            let remainig_pattern =
+                self.pattern.as_ref().map(|p| &p[prefix.len()..]);
 
             dbg!(&prefix);
             dbg!(&remainig_pattern);

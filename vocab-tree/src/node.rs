@@ -22,11 +22,7 @@ pub(crate) struct Children<K>(Vec<Node<K>>);
 impl<K: Debug + Clone + Ord> Node<K> {
     /// Create a root node with no children and maximum cost.
     pub(crate) fn root() -> Self {
-        Self {
-            min_subtree_cost: usize::MAX,
-            contents: Key::Start,
-            children: Children(Vec::new()),
-        }
+        Self::with_contents(Key::Start)
     }
 
     fn with_contents(contents: Key<K>) -> Self {
@@ -34,13 +30,6 @@ impl<K: Debug + Clone + Ord> Node<K> {
             min_subtree_cost: usize::MAX,
             contents,
             children: Children(Vec::new()),
-        }
-    }
-
-    pub(crate) fn is_terminal(&self) -> bool {
-        match &self.contents {
-            Key::End => true,
-            _ => false,
         }
     }
 
