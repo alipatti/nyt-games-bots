@@ -6,7 +6,7 @@ use crate::traversals::{DfsTraversal, Query};
 pub(crate) struct Node<K, V> {
     pub(crate) contents: Key<K>,
     pub(crate) children: Children<K, V>,
-    /// INVARIANT: `None` iff root
+    /// INVARIANT: `None` iff trie is empty
     min_descendent: Option<V>,
 }
 
