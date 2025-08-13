@@ -11,7 +11,7 @@ pub struct Trie<K>(Node<K>);
 impl<K> Default for Trie<K>
 where
     K: Ord + Clone + Debug,
- {
+{
     fn default() -> Self {
         Self::new()
     }
@@ -112,11 +112,10 @@ mod tests {
 
     #[test]
     fn test_iter() {
-        let mut words: Vec<Vec<char>> =
-            ["car", "cap", "carthage", "captive"]
-                .iter()
-                .map(|x| x.chars().collect())
-                .collect();
+        let mut words: Vec<Vec<char>> = ["car", "cap", "carthage", "captive"]
+            .iter()
+            .map(|x| x.chars().collect())
+            .collect();
 
         let mut trie: Trie<char> = Trie::new();
         for (i, w) in words.iter().enumerate() {
