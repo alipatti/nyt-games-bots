@@ -26,7 +26,7 @@ impl<'a, K> DfsTraversal<'a, K> {
     }
 }
 
-impl<'a, 'b, K: Debug + Ord + Clone> Iterator for DfsTraversal<'a, K> {
+impl<'a, K: Debug + Ord + Clone> Iterator for DfsTraversal<'a, K> {
     type Item = (Vec<Option<&'a K>>, &'a Node<K>);
 
     fn next(&mut self) -> Option<Self::Item> {
