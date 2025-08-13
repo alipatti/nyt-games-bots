@@ -13,7 +13,7 @@ where
     K: Ord + Clone + Debug,
 {
     pub fn new() -> Self {
-        Self(Node::root())
+        Self(Node::new())
     }
 
     pub fn push(&mut self, value: impl IntoIterator<Item = K>, cost: usize) {

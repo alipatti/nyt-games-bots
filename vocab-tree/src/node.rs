@@ -21,7 +21,7 @@ pub(crate) struct Children<K>(Vec<Node<K>>);
 
 impl<K: Debug + Clone + Ord> Node<K> {
     /// Create a root node with no children and maximum cost.
-    pub(crate) fn root() -> Self {
+    pub(crate) fn new() -> Self {
         Self::with_contents(Key::Start)
     }
 
