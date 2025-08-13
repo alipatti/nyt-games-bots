@@ -4,9 +4,9 @@ use crate::traversals::{DfsTraversal, Query};
 
 #[derive(Debug)]
 pub(crate) struct Node<K> {
-    contents: Key<K>,
+    pub(crate) contents: Key<K>,
+    pub(crate) children: Children<K>,
     min_subtree_cost: usize,
-    children: Children<K>,
 }
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
@@ -17,9 +17,9 @@ pub(crate) enum Key<K> {
 }
 
 #[derive(Debug)]
-struct Children<K>(Vec<Node<K>>);
+pub(crate) struct Children<K>(Vec<Node<K>>);
 
-impl<K: Debug> Node<K> {
+impl<K: Debug + Clone + Ord> Node<K> {
     /// Create a root node with no children and maximum cost.
     pub(crate) fn root() -> Self {
         Self {
@@ -65,16 +65,11 @@ impl<K: Debug> Node<K> {
 
     pub(crate) fn iter_descendents<'a>(
         &'a self,
-        pattern: Option<&'a [Query<K>]>,
+        pattern: Option<Vec<Query<K>>>,
     ) -> impl Iterator<Item = (Vec<Option<&'a K>>, &'a Node<K>)> {
         DfsTraversal::new(&self, pattern)
     }
-}
 
-impl<K> Node<K>
-where
-    K: Ord + Clone + Debug,
-{
     /// Adds a node at the given suffix with the given cost.
     pub(crate) fn push(&mut self, suffix: &[Key<K>], cost: usize) -> &Self {
         // overwrite with new cost if it's lower
@@ -114,7 +109,7 @@ impl<'a, K> IntoIterator for &'a Children<K> {
 
 impl<K: Ord + Clone + Debug> Children<K> {
     /// Gets the child if it exists.
-    fn get(&self, key: &Key<K>) -> Option<&Node<K>> {
+    pub(crate) fn get(&self, key: &Key<K>) -> Option<&Node<K>> {
         match self.0.binary_search_by_key(
             key,
             |n| n.contents.clone(), // PERF: clone here isn't ideal

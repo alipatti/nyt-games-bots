@@ -1,6 +1,9 @@
 use std::fmt::Debug;
 
-use crate::node::{Key, Node};
+use crate::{
+    node::{Key, Node},
+    traversals::Query,
+};
 
 #[derive(Debug)]
 pub struct Trie<K>(Node<K>);
@@ -34,8 +37,21 @@ where
             .collect()
     }
 
-    pub fn iter<'a>(&'a self) -> impl Iterator<Item = Vec<K>> + 'a {
-        self.0.iter_descendents(None).filter_map(|(a, _)| {
+    pub fn iter<'a>(
+        &'a self,
+        pattern: Option<&'a [Option<K>]>,
+    ) -> impl Iterator<Item = Vec<K>> + 'a {
+        let pattern = pattern.map(|p| {
+            std::iter::once(Query::Matches(Key::Start))
+                .chain(p.iter().map(|maybe_key| match maybe_key {
+                    Some(k) => Query::Matches(Key::Internal(k.clone())),
+                    None => Query::Any,
+                }))
+                .chain(std::iter::once(Query::Matches(Key::End)))
+                .collect::<Vec<_>>()
+        });
+
+        self.0.iter_descendents(pattern).filter_map(|(a, _)| {
             if let [None, middle @ .., None] = &a[..] {
                 Some(
                     middle
@@ -87,16 +103,43 @@ mod tests {
 
     #[test]
     fn test_iter() {
+        let mut words: Vec<Vec<char>> =
+            vec!["car", "cap", "carthage", "captive"]
+                .iter()
+                .map(|x| x.chars().collect())
+                .collect();
+
         let mut trie: Trie<char> = Trie::new();
-        trie.push("car".chars(), 5);
-        trie.push("cap".chars(), 6);
+        for (i, w) in words.iter().enumerate() {
+            trie.push(w.clone(), i);
+        }
 
-        // trie.push("carthage".chars(), 1);
-        // trie.push("captive".chars(), 2);
+        let mut matches: Vec<Vec<char>> = trie.iter(None).collect();
 
-        let x: Vec<_> = trie.iter().collect();
+        words.sort();
+        matches.sort();
 
-        dbg!(&x);
-        // dbg!(&trie);
+        assert_eq!(matches, words);
+    }
+
+    #[test]
+    fn test_iter_pattern() {
+        let words: Vec<Vec<char>> =
+            vec!["car", "cap", "cop", "carthage", "captive"]
+                .iter()
+                .map(|x| x.chars().collect())
+                .collect();
+
+        let mut trie: Trie<char> = Trie::new();
+        for (i, w) in words.iter().enumerate() {
+            trie.push(w.clone(), i);
+        }
+
+        let pattern = vec![Some('c'), None, Some('p')];
+
+        let mut matches: Vec<Vec<char>> = trie.iter(Some(&pattern)).collect();
+        matches.sort();
+
+        assert_eq!(matches, vec![vec!['c', 'a', 'p'], vec!['c', 'o', 'p']]);
     }
 }

@@ -1,47 +1,60 @@
-use std::{collections::HashMap, fmt::Debug};
-
 use crate::node::{Key, Node};
+use std::fmt::Debug;
 
 #[derive(Debug)]
 pub(crate) enum Query<K> {
-    Matches(K),
+    Matches(Key<K>),
     Any,
 }
 
-pub(crate) struct DfsTraversal<'a, 'b, K> {
+pub(crate) struct DfsTraversal<'a, K> {
     stack: Vec<Vec<&'a Node<K>>>,
-    _pattern: Option<&'b [Query<K>]>,
+    pattern: Option<Vec<Query<K>>>,
 }
 
-impl<'a, 'b, K> DfsTraversal<'a, 'b, K> {
+impl<'a, K> DfsTraversal<'a, K> {
     pub(crate) fn new(
         root: &'a Node<K>,
-        pattern: Option<&'b [Query<K>]>,
+        pattern: Option<Vec<Query<K>>>,
     ) -> Self {
         Self {
-            _pattern: pattern,
+            pattern,
             stack: vec![vec![&root]],
         }
     }
 }
 
-impl<'a, 'b, K: Debug> Iterator for DfsTraversal<'a, 'b, K> {
+impl<'a, 'b, K: Debug + Ord + Clone> Iterator for DfsTraversal<'a, K> {
     type Item = (Vec<Option<&'a K>>, &'a Node<K>);
 
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(prefix) = self.stack.pop() {
             let node = prefix.last().expect("guaranteed to be non-empty");
 
-            if true {
-                // push children
-                self.stack.extend(node.iter_children().map(|child| {
-                    let mut v = prefix.clone();
-                    v.push(child);
-                    v
-                }));
-            } else {
-                let child = todo!();
-                self.stack.push(child);
+            let remainig_pattern = self.pattern.as_ref().map(|p| &p[prefix.len()..]);
+
+            dbg!(&prefix);
+            dbg!(&remainig_pattern);
+
+            match remainig_pattern {
+                // no pattern OR next pattern is Query::Any
+                None | Some([Query::Any, ..]) => {
+                    self.stack.extend(node.iter_children().map(|child| {
+                        let mut v = prefix.clone();
+                        v.push(child);
+                        v
+                    }))
+                }
+                // next pattern must match
+                Some([Query::Matches(k), ..]) => {
+                    if let Some(child) = node.children.get(k) {
+                        let mut v = prefix.clone();
+                        v.push(child);
+                        self.stack.push(v);
+                    }
+                }
+                // end of pattern. don't descend further
+                Some([]) => {}
             }
 
             Some((prefix.iter().map(|n| n.key()).collect(), node))
