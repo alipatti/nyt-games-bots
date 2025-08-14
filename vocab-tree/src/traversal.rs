@@ -35,8 +35,8 @@ impl<'a, K, V> TrieDfsTraversal<'a, K, V> {
 
 impl<K, V> Iterator for TrieDfsTraversal<'_, K, V>
 where
-    K: Debug + Clone + Eq,
-    V: Debug + Clone + Ord,
+    K: Clone + PartialEq,
+    V: Clone + Ord,
 {
     type Item = usize;
 
@@ -50,10 +50,7 @@ where
                 // no pattern OR next part of pattern is `None`:
                 // push all children
                 None | Some([None, ..]) => self.stack.extend(
-                    self.trie
-                        .children(index)
-                        .iter()
-                        .map(|i| (*i, depth + 1)),
+                    self.trie.children(index).iter().map(|i| (*i, depth + 1)),
                 ),
                 // next part of pattern is `Some`:
                 // push the matching child (if it exists)

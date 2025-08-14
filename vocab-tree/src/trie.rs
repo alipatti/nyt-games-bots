@@ -48,41 +48,16 @@ where
     }
 }
 
-impl<K, V> Trie<K, V>
-where
-    // TODO: split up impls don't really need ord here.
-    K: Debug + Clone + Eq,
-    V: Debug + Clone + Ord,
-{
+impl<K, V> Trie<K, V> {
     pub fn new() -> Self {
         Self { nodes: vec![] }
     }
+}
 
-    pub fn push(&mut self, keys: impl IntoIterator<Item = K>, value: V) {
-        // push root if this the first element
-        if self.nodes.is_empty() {
-            self.nodes.push(Node::root(value.clone()));
-        }
-
-        // get the root
-        let mut current_index = 0;
-
-        for key in keys {
-            // PERF: unnecessary clone here
-            // change the function to take Option<&K>?
-            current_index = self.get_or_create_child_index(
-                current_index,
-                Key::Internal(key.clone()),
-                &value,
-            );
-            self.update_min_descendent(current_index, &value);
-        }
-
-        current_index =
-            self.get_or_create_child_index(current_index, Key::End, &value);
-        self.update_min_descendent(current_index, &value);
-    }
-
+impl<K, V> Trie<K, V>
+where
+    K: PartialEq,
+{
     pub fn get(
         &self,
         keys: impl IntoIterator<Item = impl Into<Key<K>>>,
@@ -96,43 +71,22 @@ where
             .map(|i| &self.nodes[i].min_descendent)
     }
 
-    /// Returns the index of a child, creating the child if it doesn't exist.
-    fn get_or_create_child_index(
-        &mut self,
-        parent_index: usize,
-        child_key: Key<K>,
-        child_value: &V,
-    ) -> usize {
-        // get the index of the child if it exists
-        let maybe_index = self.nodes[parent_index]
-            .children
-            .iter()
-            .find(|&i| child_key == self.nodes[*i].key);
+    pub(crate) fn get_node_index(
+        &self,
+        keys: impl IntoIterator<Item = Key<K>>,
+    ) -> Option<usize> {
+        let mut current_index = 0;
 
-        match maybe_index {
-            Some(index) => *index,
-            None => {
-                let child = Node::new(
-                    Some(parent_index),
-                    child_key,
-                    child_value.clone(),
-                );
-                self.nodes.push(child);
-
-                let child_index = self.nodes.len() - 1;
-                self.nodes[parent_index].children.push(child_index);
-
-                child_index
+        for k in keys {
+            match self.get_child_index(dbg!(current_index), &k) {
+                Some(child_index) => {
+                    current_index = child_index;
+                }
+                None => return None,
             }
         }
-    }
 
-    fn update_min_descendent(&mut self, index_to_update: usize, value: &V) {
-        let node = self.nodes.get_mut(index_to_update).unwrap();
-
-        if node.min_descendent < *value {
-            node.min_descendent = value.clone()
-        }
+        Some(current_index)
     }
 
     /// Returns the index of a child
@@ -152,23 +106,74 @@ where
     pub(crate) fn children(&self, parent_index: usize) -> &[usize] {
         &self.nodes[parent_index].children
     }
+}
 
-    pub(crate) fn get_node_index(
-        &self,
-        keys: impl IntoIterator<Item = Key<K>>,
-    ) -> Option<usize> {
-        let mut current_index = 0;
-
-        for k in keys {
-            match self.get_child_index(dbg!(current_index), &k) {
-                Some(child_index) => {
-                    current_index = child_index;
-                }
-                None => return None,
-            }
+impl<K, V> Trie<K, V>
+where
+    K: Clone + PartialEq,
+    V: Clone + Ord,
+{
+    pub fn push(&mut self, keys: impl IntoIterator<Item = K>, value: V) {
+        // push root if this the first element
+        if self.nodes.is_empty() {
+            self.nodes.push(Node::root(value.clone()));
         }
 
-        Some(current_index)
+        // get the root
+        let mut current_index = 0;
+
+        for key in keys {
+            // PERF: unnecessary clone here
+            // change the function to take Option<&K>?
+            current_index = self.descend_to_child(
+                current_index,
+                Key::Internal(key.clone()),
+                &value,
+            );
+        }
+
+        // add a special `Key::End` value to indicate that this is the end of a word
+        self.descend_to_child(current_index, Key::End, &value);
+    }
+
+    /// Returns the index of a child, creating the child if it doesn't exist.
+    /// Updates `min_descendent` of the child.
+    fn descend_to_child(
+        &mut self,
+        parent_index: usize,
+        child_key: Key<K>,
+        child_value: &V,
+    ) -> usize {
+        // get the index of the child if it exists
+        let maybe_index = self.nodes[parent_index]
+            .children
+            .iter()
+            .find(|&i| child_key == self.nodes[*i].key);
+
+        let child_index = match maybe_index {
+            Some(index) => *index,
+            None => {
+                let child = Node::new(
+                    Some(parent_index),
+                    child_key,
+                    child_value.clone(),
+                );
+                self.nodes.push(child);
+
+                let child_index = self.nodes.len() - 1;
+                self.nodes[parent_index].children.push(child_index);
+
+                child_index
+            }
+        };
+
+        let node = self.nodes.get_mut(child_index).unwrap();
+
+        if node.min_descendent < *child_value {
+            node.min_descendent = child_value.clone();
+        }
+
+        child_index
     }
 
     pub fn iter_values_unordered(
