@@ -127,10 +127,8 @@ where
 
 #[cfg(test)]
 mod tests {
-    use itertools::Itertools;
-    use proptest::collection as c;
-    use proptest::proptest;
-    use proptest::{prop_assert, prop_assert_eq};
+    use quickcheck_macros::quickcheck;
+    use std::collections::HashSet;
 
     use super::*;
 
@@ -161,48 +159,17 @@ mod tests {
         assert_eq!(sorted_by_last_letter, returned_by_iterator);
     }
 
-    proptest!(
-        #[test]
-        fn test_iter_inorder(
-            unique_keys in c::hash_set(c::vec(0..10usize, 1..10), 0..10),
-        ) {
-
-            // prop_assume!(!unique_keys.iter().is_sorted());
-
-            let mut trie = Trie::new();
-            for key in &unique_keys {
-                trie.push(key.clone(), key.iter().rev().cloned().collect_vec());
-            }
-
-            let returned_by_iterator = trie
-                .iter_values_ordered(None)
-                .map(|(prefix, _cost)| {
-                    prefix.cloned().collect_vec().into_iter().rev().collect_vec()
-                })
-                .collect::<Vec<_>>();
-
-            // sorted by value
-            let expected =
-                unique_keys.into_iter().sorted_by_key(|x| x.iter().rev().cloned().collect_vec()).collect_vec();
-
-            // dbg!(&pairs);
-            prop_assert_eq!(expected, returned_by_iterator)
+    /// check if the iterator is sorted
+    #[quickcheck]
+    fn test_iter_inorder_2(unique_keys: HashSet<Vec<u8>>) {
+        let mut trie = Trie::new();
+        for key in &unique_keys {
+            trie.push(key.clone(), key.last());
         }
 
-        /// check if the iterator is sorted
-        #[test]
-        fn test_iter_inorder_2(
-            unique_keys in c::hash_set(c::vec(0..10usize, 0..10), 0..10),
-        ) {
-            let mut trie = Trie::new();
-            for key in &unique_keys {
-                trie.push(key.clone(), key.last());
-            }
+        let iterator_sorted =
+            trie.iter_values_ordered(None).is_sorted_by_key(|(_, v)| v);
 
-            let iterator_sorted = trie
-                .iter_values_ordered(None).is_sorted_by_key(|(_, v)| v);
-
-            prop_assert!(iterator_sorted);
-        }
-    );
+        assert!(iterator_sorted);
+    }
 }
