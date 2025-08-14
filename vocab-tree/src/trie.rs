@@ -40,7 +40,7 @@ impl<K, V> Default for Trie<K, V>
 where
     K: Debug + Clone + Eq,
     V: Debug + Clone + Ord,
- {
+{
     fn default() -> Self {
         Self::new()
     }
@@ -53,12 +53,15 @@ where
     V: Debug + Clone + Ord,
 {
     pub fn new() -> Self {
-        Self {
-            nodes: vec![Node::new(None, Key::Start)],
-        }
+        Self { nodes: vec![] }
     }
 
     pub fn push(&mut self, keys: impl IntoIterator<Item = K>, value: V) {
+        // push root if this the first element
+        if self.nodes.is_empty() {
+            self.nodes.push(Node::new(None, Key::Start));
+        }
+
         // get the root
         let mut current_index = 0;
 
@@ -115,11 +118,7 @@ where
         }
     }
 
-    fn update_min_descendent(
-        &mut self,
-        index_to_update: usize,
-        value: &V,
-    ) {
+    fn update_min_descendent(&mut self, index_to_update: usize, value: &V) {
         let node = self.nodes.get_mut(index_to_update).unwrap();
 
         match &node.min_descendent {
@@ -224,7 +223,7 @@ mod tests {
 
         assert_eq!(
             trie.nodes.iter().map(|n| n.key.clone()).collect::<Vec<_>>(),
-            vec![Key::Start]
+            vec![]
         );
     }
 
