@@ -1,4 +1,4 @@
-mod traversal_arena;
-mod trie_arena;
+mod traversal;
+mod trie;
 
-pub use trie_arena::Trie;
+pub use trie::Trie;

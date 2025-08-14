@@ -1,6 +1,6 @@
 use std::fmt::Debug;
 
-use crate::trie_arena::{Key, Trie};
+use crate::trie::{Key, Trie};
 
 #[derive(Debug)]
 pub(crate) struct TrieDfsTraversal<'a, K, V> {

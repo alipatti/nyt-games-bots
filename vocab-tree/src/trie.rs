@@ -1,6 +1,6 @@
 use std::fmt::Debug;
 
-use crate::traversal_arena::{Pattern, TrieDfsTraversal};
+use crate::traversal::{Pattern, TrieDfsTraversal};
 
 #[derive(Debug)]
 pub struct Trie<K, V> {
