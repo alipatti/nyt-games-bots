@@ -10,10 +10,9 @@ pub struct Trie<K, V> {
 #[derive(Debug)]
 pub(crate) struct Node<K, V> {
     key: Key<K>,
-    // TODO: remove the option. this would require us to fix empty trie creation
     min_descendent: V,
     children: Vec<usize>,
-    /// INVARIANT `None` iff trie is empty
+    /// INVARIANT `None` if root
     parent: Option<usize>,
 }
 
