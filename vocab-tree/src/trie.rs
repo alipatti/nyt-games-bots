@@ -52,6 +52,14 @@ impl<K, V> Trie<K, V> {
     pub fn new() -> Self {
         Self { nodes: vec![] }
     }
+
+    pub(crate) fn node(&self, index: usize) -> &Node<K, V> {
+        &self.nodes[index]
+    }
+
+    pub(crate) fn children(&self, parent_index: usize) -> &[usize] {
+        &self.node(parent_index).children
+    }
 }
 
 impl<K, V> Trie<K, V>
@@ -68,7 +76,7 @@ where
             .chain(std::iter::once(Key::End));
 
         self.get_node_index(keys)
-            .map(|i| &self.nodes[i].min_descendent)
+            .map(|i| &self.node(i).min_descendent)
     }
 
     pub(crate) fn get_node_index(
@@ -96,15 +104,11 @@ where
         child_key: &Key<K>,
     ) -> Option<usize> {
         // get the index of the child if it exists
-        self.nodes[parent_index]
+        self.node(parent_index)
             .children
             .iter()
-            .find(|&i| *child_key == self.nodes[*i].key)
+            .find(|&i| *child_key == self.node(*i).key)
             .copied()
-    }
-
-    pub(crate) fn children(&self, parent_index: usize) -> &[usize] {
-        &self.nodes[parent_index].children
     }
 }
 
@@ -175,7 +179,13 @@ where
 
         child_index
     }
+}
 
+/// unordered iteration over nodes
+impl<K, V> Trie<K, V>
+where
+    K: PartialEq,
+{
     pub fn iter_values_unordered(
         &self,
         pattern: Option<Pattern<K>>,
@@ -193,7 +203,7 @@ where
         &self,
         pattern: Option<Pattern<K>>,
     ) -> impl Iterator<Item = &Node<K, V>> {
-        TrieDfsTraversal::from_root(self, pattern).map(|i| &self.nodes[i])
+        TrieDfsTraversal::from_root(self, pattern).map(|i| self.node(i))
     }
 
     fn path_to_root<'a>(
@@ -204,7 +214,7 @@ where
 
         std::iter::from_fn(move || match current.parent {
             Some(parent_index) => {
-                current = &self.nodes[parent_index]; // go to parent
+                current = self.node(parent_index); // go to parent
 
                 match &current.key {
                     Key::Internal(k) => Some(k),

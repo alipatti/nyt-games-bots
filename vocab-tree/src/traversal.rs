@@ -35,8 +35,7 @@ impl<'a, K, V> TrieDfsTraversal<'a, K, V> {
 
 impl<K, V> Iterator for TrieDfsTraversal<'_, K, V>
 where
-    K: Clone + PartialEq,
-    V: Clone + Ord,
+    K: PartialEq,
 {
     type Item = usize;
 
