@@ -11,21 +11,24 @@ pub struct Trie<K, V> {
 pub(crate) struct Node<K, V> {
     key: Key<K>,
     // TODO: remove the option. this would require us to fix empty trie creation
-    // (can we defer pushing the root until we add the first element?)
-    min_descendent: Option<V>,
+    min_descendent: V,
     children: Vec<usize>,
     /// INVARIANT `None` iff trie is empty
     parent: Option<usize>,
 }
 
 impl<K, V> Node<K, V> {
-    fn new(parent: Option<usize>, key: Key<K>) -> Self {
+    fn new(parent: Option<usize>, key: Key<K>, value: V) -> Self {
         Self {
             children: Vec::new(),
-            min_descendent: None,
+            min_descendent: value,
             parent,
             key,
         }
+    }
+
+    fn root(value: V) -> Self {
+        Self::new(None, Key::Start, value)
     }
 }
 
@@ -59,7 +62,7 @@ where
     pub fn push(&mut self, keys: impl IntoIterator<Item = K>, value: V) {
         // push root if this the first element
         if self.nodes.is_empty() {
-            self.nodes.push(Node::new(None, Key::Start));
+            self.nodes.push(Node::root(value.clone()));
         }
 
         // get the root
@@ -71,11 +74,13 @@ where
             current_index = self.get_or_create_child_index(
                 current_index,
                 Key::Internal(key.clone()),
+                &value,
             );
             self.update_min_descendent(current_index, &value);
         }
 
-        current_index = self.get_or_create_child_index(current_index, Key::End);
+        current_index =
+            self.get_or_create_child_index(current_index, Key::End, &value);
         self.update_min_descendent(current_index, &value);
     }
 
@@ -89,7 +94,7 @@ where
             .chain(std::iter::once(Key::End));
 
         self.get_node_index(keys)
-            .map(|i| self.nodes[i].min_descendent.as_ref().expect("guaranteed"))
+            .map(|i| &self.nodes[i].min_descendent)
     }
 
     /// Returns the index of a child, creating the child if it doesn't exist.
@@ -97,6 +102,7 @@ where
         &mut self,
         parent_index: usize,
         child_key: Key<K>,
+        child_value: &V,
     ) -> usize {
         // get the index of the child if it exists
         let maybe_index = self.nodes[parent_index]
@@ -107,7 +113,11 @@ where
         match maybe_index {
             Some(index) => *index,
             None => {
-                let child = Node::new(Some(parent_index), child_key);
+                let child = Node::new(
+                    Some(parent_index),
+                    child_key,
+                    child_value.clone(),
+                );
                 self.nodes.push(child);
 
                 let child_index = self.nodes.len() - 1;
@@ -121,12 +131,8 @@ where
     fn update_min_descendent(&mut self, index_to_update: usize, value: &V) {
         let node = self.nodes.get_mut(index_to_update).unwrap();
 
-        match &node.min_descendent {
-            None => node.min_descendent = Some(value.clone()),
-            Some(current_value) if current_value < value => {
-                node.min_descendent = Some(value.clone())
-            }
-            _ => {} // current value is smaller
+        if node.min_descendent < *value {
+            node.min_descendent = value.clone()
         }
     }
 
@@ -172,10 +178,9 @@ where
     ) -> impl Iterator<Item = (impl Iterator<Item = &K>, &V)> {
         self.iter_nodes_unordered(pattern)
             .filter_map(|node| match node.key {
-                Key::End => Some((
-                    self.path_to_root(node),
-                    node.min_descendent.as_ref().expect("guaranteed to exist"),
-                )),
+                Key::End => {
+                    Some((self.path_to_root(node), &node.min_descendent))
+                }
                 _ => None,
             })
     }
