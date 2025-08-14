@@ -1,11 +1,11 @@
 use std::fmt::Debug;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Trie<K, V> {
     nodes: Vec<Node<K, V>>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) struct Node<K, V> {
     key: Key<K>,
     min_descendent: V,
@@ -51,11 +51,7 @@ pub(crate) enum Key<K> {
     End,
 }
 
-impl<K, V> Default for Trie<K, V>
-where
-    K: Debug + Clone + Eq,
-    V: Debug + Clone + Ord,
-{
+impl<K, V> Default for Trie<K, V> {
     fn default() -> Self {
         Self::new()
     }
@@ -70,9 +66,32 @@ impl<K, V> Trie<K, V> {
         &self.nodes[index]
     }
 
+    pub(crate) fn root(&self) -> Option<&Node<K, V>> {
+        self.nodes.get(0)
+    }
+
     /// used in the traversals
     pub(crate) fn child_indices(&self, parent_index: usize) -> &[usize] {
         &self.node(parent_index).children
+    }
+
+    pub(crate) fn path_to_root<'a>(
+        &'a self,
+        node: &'a Node<K, V>,
+    ) -> impl Iterator<Item = &'a K> {
+        let mut current = node;
+
+        std::iter::from_fn(move || match current.parent(self) {
+            Some(parent) => {
+                current = parent;
+
+                match current.key() {
+                    Key::Internal(k) => Some(k),
+                    _ => None,
+                }
+            }
+            None => None, // at the root
+        })
     }
 }
 
@@ -129,13 +148,15 @@ where
 
 impl<K, V> Trie<K, V>
 where
-    K: Clone + PartialEq,
-    V: Clone + Ord,
+    K: Clone + PartialEq + Debug,
+    V: Clone + Ord + Debug,
 {
     pub fn push(&mut self, keys: impl IntoIterator<Item = K>, value: V) {
         // push root if this the first element
         if self.nodes.is_empty() {
             self.nodes.push(Node::root(value.clone()));
+        } else {
+            self.update_node_value(0, &value);
         }
 
         // get the root
@@ -164,13 +185,17 @@ where
         child_value: &V,
     ) -> usize {
         // get the index of the child if it exists
-        let maybe_index = self.nodes[parent_index]
-            .children
+        let maybe_index = self
+            .child_indices(parent_index)
             .iter()
-            .find(|&i| child_key == self.nodes[*i].key);
+            .find(|&i| child_key == self.nodes[*i].key)
+            .cloned();
 
-        let child_index = match maybe_index {
-            Some(index) => *index,
+        match maybe_index {
+            Some(child_index) => {
+                self.update_node_value(child_index, child_value);
+                child_index
+            }
             None => {
                 let child = Node::new(
                     Some(parent_index),
@@ -184,15 +209,18 @@ where
 
                 child_index
             }
-        };
-
-        let node = self.nodes.get_mut(child_index).unwrap();
-
-        if node.min_descendent < *child_value {
-            node.min_descendent = child_value.clone();
         }
+    }
 
-        child_index
+    fn update_node_value(&mut self, node_index: usize, new_value: &V) -> bool {
+        let node = self.nodes.get_mut(node_index).unwrap();
+
+        if *new_value < node.min_descendent {
+            node.min_descendent = new_value.clone();
+            true
+        } else {
+            false
+        }
     }
 }
 
@@ -214,6 +242,20 @@ mod tests {
             trie.nodes.iter().map(|n| n.key.clone()).collect::<Vec<_>>(),
             vec![]
         );
+    }
+
+    #[test]
+    fn test_push_cost_update() {
+        let mut trie = Trie::new();
+        trie.push("car".chars(), 10);
+
+        assert_eq!(trie.root().map(|n| n.value().clone()), Some(10));
+
+        trie.push("cat".chars(), 5);
+        assert_eq!(trie.root().map(|n| n.value().clone()), Some(5));
+
+        trie.push("cab".chars(), 7);
+        assert_eq!(trie.root().map(|n| n.value().clone()), Some(5));
     }
 
     #[test]

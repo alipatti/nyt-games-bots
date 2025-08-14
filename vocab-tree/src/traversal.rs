@@ -1,3 +1,5 @@
+// TODO: implement DFS as a special case of dijkstras
+
 use std::fmt::Debug;
 
 use crate::trie::{Key, Node, Trie};
@@ -49,7 +51,10 @@ where
                 // no pattern OR next part of pattern is `None`:
                 // push all children
                 None | Some([None, ..]) => self.stack.extend(
-                    self.trie.child_indices(index).iter().map(|i| (*i, depth + 1)),
+                    self.trie
+                        .child_indices(index)
+                        .iter()
+                        .map(|i| (*i, depth + 1)),
                 ),
                 // next part of pattern is `Some`:
                 // push the matching child (if it exists)
@@ -94,25 +99,6 @@ where
         pattern: Option<Pattern<K>>,
     ) -> impl Iterator<Item = &Node<K, V>> {
         TrieDfsTraversal::from_root(self, pattern)
-    }
-
-    fn path_to_root<'a>(
-        &'a self,
-        node: &'a Node<K, V>,
-    ) -> impl Iterator<Item = &'a K> {
-        let mut current = node;
-
-        std::iter::from_fn(move || match current.parent(self) {
-            Some(parent) => {
-                current = parent;
-
-                match current.key() {
-                    Key::Internal(k) => Some(k),
-                    _ => None,
-                }
-            }
-            None => None, // at the root
-        })
     }
 }
 

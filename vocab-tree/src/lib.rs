@@ -1,5 +1,5 @@
 mod traversal;
-// mod traversal_inorder;
+mod traversal_inorder;
 mod trie;
 
 pub use trie::Trie;
