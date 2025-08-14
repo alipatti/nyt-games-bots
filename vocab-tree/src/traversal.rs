@@ -29,7 +29,11 @@ impl<'a, K, V> TrieDfsTraversal<'a, K, V> {
     ) -> Self {
         Self {
             trie,
-            stack: vec![(start_index, 0)],
+            stack: if trie.root().is_some() {
+                vec![(start_index, 0)]
+            } else {
+                vec![]
+            },
             pattern,
         }
     }
@@ -87,18 +91,12 @@ where
         &self,
         pattern: Option<Pattern<K>>,
     ) -> impl Iterator<Item = (impl Iterator<Item = &K>, &V)> {
-        self.iter_nodes_unordered(pattern)
-            .filter_map(|node| match node.key() {
-                Key::End => Some((self.path_to_root(node), node.value())),
-                _ => None,
-            })
-    }
-
-    fn iter_nodes_unordered(
-        &self,
-        pattern: Option<Pattern<K>>,
-    ) -> impl Iterator<Item = &Node<K, V>> {
-        TrieDfsTraversal::from_root(self, pattern)
+        TrieDfsTraversal::from_root(self, pattern).filter_map(|node| match node
+            .key()
+        {
+            Key::End => Some((self.path_to_root(node), node.value())),
+            _ => None,
+        })
     }
 }
 

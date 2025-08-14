@@ -232,6 +232,10 @@ impl<K> From<K> for Key<K> {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashSet;
+
+    use quickcheck_macros::quickcheck;
+
     use super::*;
 
     #[test]
@@ -276,7 +280,7 @@ mod tests {
     }
 
     #[test]
-    fn test_multiple_strings() {
+    fn test_few_strings() {
         let mut trie = Trie::new();
         trie.push("car".chars(), 1);
         trie.push("cat".chars(), 2);
@@ -290,5 +294,16 @@ mod tests {
 
         assert!(trie.get("c".chars()).is_none());
         assert!(trie.get("ca".chars()).is_none());
+    }
+
+    #[quickcheck]
+    fn test_many_strings(strings: HashSet<String>) {
+        let mut trie = Trie::new();
+
+        for s in &strings {
+            trie.push(s.chars(), ());
+        }
+
+        assert_eq!(trie.iter_values_unordered(None).count(), strings.len());
     }
 }
