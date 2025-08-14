@@ -1,7 +1,5 @@
 use std::fmt::Debug;
 
-use crate::traversal::{Pattern, TrieDfsTraversal};
-
 #[derive(Debug)]
 pub struct Trie<K, V> {
     nodes: Vec<Node<K, V>>,
@@ -28,6 +26,21 @@ impl<K, V> Node<K, V> {
 
     fn root(value: V) -> Self {
         Self::new(None, Key::Start, value)
+    }
+
+    pub(crate) fn key(&self) -> &Key<K> {
+        &self.key
+    }
+
+    pub(crate) fn value(&self) -> &V {
+        &self.min_descendent
+    }
+
+    pub(crate) fn parent<'a>(
+        &'a self,
+        trie: &'a Trie<K, V>,
+    ) -> Option<&'a Node<K, V>> {
+        self.parent.map(move |i| trie.node(i))
     }
 }
 
@@ -57,7 +70,8 @@ impl<K, V> Trie<K, V> {
         &self.nodes[index]
     }
 
-    pub(crate) fn children(&self, parent_index: usize) -> &[usize] {
+    /// used in the traversals
+    pub(crate) fn child_indices(&self, parent_index: usize) -> &[usize] {
         &self.node(parent_index).children
     }
 }
@@ -66,6 +80,7 @@ impl<K, V> Trie<K, V>
 where
     K: PartialEq,
 {
+    /// retrieve the value of a particular key sequence
     pub fn get(
         &self,
         keys: impl IntoIterator<Item = impl Into<Key<K>>>,
@@ -181,51 +196,6 @@ where
     }
 }
 
-/// unordered iteration over nodes
-impl<K, V> Trie<K, V>
-where
-    K: PartialEq,
-{
-    pub fn iter_values_unordered(
-        &self,
-        pattern: Option<Pattern<K>>,
-    ) -> impl Iterator<Item = (impl Iterator<Item = &K>, &V)> {
-        self.iter_nodes_unordered(pattern)
-            .filter_map(|node| match node.key {
-                Key::End => {
-                    Some((self.path_to_root(node), &node.min_descendent))
-                }
-                _ => None,
-            })
-    }
-
-    fn iter_nodes_unordered(
-        &self,
-        pattern: Option<Pattern<K>>,
-    ) -> impl Iterator<Item = &Node<K, V>> {
-        TrieDfsTraversal::from_root(self, pattern).map(|i| self.node(i))
-    }
-
-    fn path_to_root<'a>(
-        &'a self,
-        node: &'a Node<K, V>,
-    ) -> impl Iterator<Item = &'a K> {
-        let mut current = node;
-
-        std::iter::from_fn(move || match current.parent {
-            Some(parent_index) => {
-                current = self.node(parent_index); // go to parent
-
-                match &current.key {
-                    Key::Internal(k) => Some(k),
-                    _ => None,
-                }
-            }
-            None => None, // at the root
-        })
-    }
-}
-
 impl<K> From<K> for Key<K> {
     fn from(value: K) -> Self {
         Key::Internal(value)
@@ -278,30 +248,5 @@ mod tests {
 
         assert!(trie.get("c".chars()).is_none());
         assert!(trie.get("ca".chars()).is_none());
-    }
-
-    #[test]
-    fn test_iter_unordered() {
-        let mut trie = Trie::new();
-        let words = vec!["antidisestablishmentarianism", "cab", "car", "cat"];
-
-        for word in &words {
-            trie.push(word.chars(), ());
-        }
-
-        // awkward reversal so that the prefix is in the right order
-        let mut should_be_words = trie
-            .iter_values_unordered(None)
-            .map(|(prefix, _)| {
-                prefix
-                    .collect::<Vec<_>>()
-                    .into_iter()
-                    .rev()
-                    .collect::<String>()
-            })
-            .collect::<Vec<_>>();
-        should_be_words.sort();
-
-        assert_eq!(words, should_be_words);
     }
 }

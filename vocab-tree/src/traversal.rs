@@ -1,6 +1,6 @@
 use std::fmt::Debug;
 
-use crate::trie::{Key, Trie};
+use crate::trie::{Key, Node, Trie};
 
 #[derive(Debug)]
 pub(crate) struct TrieDfsTraversal<'a, K, V> {
@@ -33,11 +33,11 @@ impl<'a, K, V> TrieDfsTraversal<'a, K, V> {
     }
 }
 
-impl<K, V> Iterator for TrieDfsTraversal<'_, K, V>
+impl<'a, K, V> Iterator for TrieDfsTraversal<'a, K, V>
 where
     K: PartialEq,
 {
-    type Item = usize;
+    type Item = &'a Node<K, V>;
 
     fn next(&mut self) -> Option<Self::Item> {
         if let Some((index, depth)) = self.stack.pop() {
@@ -49,7 +49,7 @@ where
                 // no pattern OR next part of pattern is `None`:
                 // push all children
                 None | Some([None, ..]) => self.stack.extend(
-                    self.trie.children(index).iter().map(|i| (*i, depth + 1)),
+                    self.trie.child_indices(index).iter().map(|i| (*i, depth + 1)),
                 ),
                 // next part of pattern is `Some`:
                 // push the matching child (if it exists)
@@ -65,11 +65,54 @@ where
             }
 
             // return the current index
-            Some(index)
+            Some(self.trie.node(index))
         } else {
             // exhausted tree
             None
         }
+    }
+}
+
+/// unordered iteration over nodes
+impl<K, V> Trie<K, V>
+where
+    K: PartialEq,
+{
+    pub fn iter_values_unordered(
+        &self,
+        pattern: Option<Pattern<K>>,
+    ) -> impl Iterator<Item = (impl Iterator<Item = &K>, &V)> {
+        self.iter_nodes_unordered(pattern)
+            .filter_map(|node| match node.key() {
+                Key::End => Some((self.path_to_root(node), node.value())),
+                _ => None,
+            })
+    }
+
+    fn iter_nodes_unordered(
+        &self,
+        pattern: Option<Pattern<K>>,
+    ) -> impl Iterator<Item = &Node<K, V>> {
+        TrieDfsTraversal::from_root(self, pattern)
+    }
+
+    fn path_to_root<'a>(
+        &'a self,
+        node: &'a Node<K, V>,
+    ) -> impl Iterator<Item = &'a K> {
+        let mut current = node;
+
+        std::iter::from_fn(move || match current.parent(self) {
+            Some(parent) => {
+                current = parent;
+
+                match current.key() {
+                    Key::Internal(k) => Some(k),
+                    _ => None,
+                }
+            }
+            None => None, // at the root
+        })
     }
 }
 
@@ -116,5 +159,30 @@ mod tests {
             TrieDfsTraversal::from_root(&trie, Some(pattern)).count(),
             n
         );
+    }
+
+    #[test]
+    fn test_iter_unordered() {
+        let mut trie = Trie::new();
+        let words = vec!["antidisestablishmentarianism", "cab", "car", "cat"];
+
+        for word in &words {
+            trie.push(word.chars(), ());
+        }
+
+        // awkward reversal so that the prefix is in the right order
+        let mut should_be_words = trie
+            .iter_values_unordered(None)
+            .map(|(prefix, _)| {
+                prefix
+                    .collect::<Vec<_>>()
+                    .into_iter()
+                    .rev()
+                    .collect::<String>()
+            })
+            .collect::<Vec<_>>();
+        should_be_words.sort();
+
+        assert_eq!(words, should_be_words);
     }
 }
