@@ -66,6 +66,19 @@ where
         self.update_min_descendent(current_index, &value);
     }
 
+    pub fn get(
+        &self,
+        keys: impl IntoIterator<Item = impl Into<Key<K>>>,
+    ) -> Option<&V> {
+        let keys = keys
+            .into_iter()
+            .map(|k| k.into())
+            .chain(std::iter::once(Key::End));
+
+        self.get_node_index(keys)
+            .map(|i| self.nodes[i].min_descendent.as_ref().expect("guaranteed"))
+    }
+
     /// Returns the index of a child, creating the child if it doesn't exist.
     fn get_or_create_child_index(
         &mut self,
@@ -122,19 +135,26 @@ where
             .copied()
     }
 
-    pub(crate) fn children<'a>(
-        &'a self,
-        parent: usize,
-    ) -> impl IntoIterator<Item = &'a usize> {
-        &self
-            .nodes
-            .get(parent)
-            .expect("guaranteed to exist")
-            .children
+    pub(crate) fn children(&self, parent_index: usize) -> &[usize] {
+        &self.nodes[parent_index].children
     }
 
-    pub(crate) fn n_nodes(&self) -> usize {
-        self.nodes.len()
+    pub(crate) fn get_node_index(
+        &self,
+        keys: impl IntoIterator<Item = Key<K>>,
+    ) -> Option<usize> {
+        let mut current_index = 0;
+
+        for k in keys {
+            match self.get_child_index(dbg!(current_index), &k) {
+                Some(child_index) => {
+                    current_index = child_index;
+                }
+                None => return None,
+            }
+        }
+
+        Some(current_index)
     }
 
     pub fn iter_values_unordered(
@@ -178,6 +198,12 @@ where
     }
 }
 
+impl<K> From<K> for Key<K> {
+    fn from(value: K) -> Self {
+        Key::Internal(value)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -212,10 +238,18 @@ mod tests {
     #[test]
     fn test_multiple_strings() {
         let mut trie = Trie::new();
-        trie.push("car".chars(), ());
-        trie.push("cat".chars(), ());
+        trie.push("car".chars(), 1);
+        trie.push("cat".chars(), 2);
 
         assert_eq!(trie.nodes.len(), 1 + (3 + 1) + (1 + 1));
+
+        assert_eq!(trie.get("car".chars()), Some(&1));
+        assert_eq!(trie.get("cat".chars()), Some(&2));
+
+        assert!(trie.get("dog".chars()).is_none());
+
+        assert!(trie.get("c".chars()).is_none());
+        assert!(trie.get("ca".chars()).is_none());
     }
 
     #[test]

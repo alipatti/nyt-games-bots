@@ -88,10 +88,7 @@ mod tests {
         trie.push("cat".chars(), ());
         trie.push("carp".chars(), ());
 
-        assert_eq!(
-            TrieDfsTraversal::from_root(&trie, None).count(),
-            trie.n_nodes()
-        );
+        assert_eq!(TrieDfsTraversal::from_root(&trie, None).count(), 9);
     }
 
     #[test]
