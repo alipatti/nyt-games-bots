@@ -36,6 +36,16 @@ pub(crate) enum Key<K> {
     End,
 }
 
+impl<K, V> Default for Trie<K, V>
+where
+    K: Debug + Clone + Eq,
+    V: Debug + Clone + Ord,
+ {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<K, V> Trie<K, V>
 where
     // TODO: split up impls don't really need ord here.
@@ -92,7 +102,7 @@ where
             .find(|&i| child_key == self.nodes[*i].key);
 
         match maybe_index {
-            Some(index) => index.clone(),
+            Some(index) => *index,
             None => {
                 let child = Node::new(Some(parent_index), child_key);
                 self.nodes.push(child);
@@ -109,7 +119,7 @@ where
         &mut self,
         index_to_update: usize,
         value: &V,
-    ) -> () {
+    ) {
         let node = self.nodes.get_mut(index_to_update).unwrap();
 
         match &node.min_descendent {
